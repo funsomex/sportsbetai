@@ -1,115 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --background: 0 0% 2%;
+    --foreground: 0 0% 93%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 75 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 240 4% 65%;
+    --accent: 187 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 59%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 75 100% 50%;
+    --radius: 0.125rem;
+    --chart-1: 75 100% 50%;
+    --chart-2: 187 100% 50%;
+    --chart-3: 0 100% 59%;
+    --chart-4: 240 4% 65%;
+    --chart-5: 0 0% 100%;
+  }
+}
+
+html.dark,
+.dark {
+  color-scheme: dark;
+}
+
 body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #050505;
+  color: #EDEDED;
 }
 
 code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
+  * {
+    @apply border-border;
+  }
 }
 
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
+::-webkit-scrollbar-track {
+  background: #0A0A0A;
+}
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3F3F46;
+}
+
+/* Typography */
+.font-heading {
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+.font-data {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-body {
+  font-family: 'Manrope', sans-serif;
+}
+
+/* Data elements */
+.data-value {
+  @apply font-data font-bold tracking-tighter;
+}
+
+.data-label {
+  @apply font-body text-xs uppercase tracking-wider text-[#A1A1AA];
+}
+
+/* Value bet glow */
+.value-glow {
+  box-shadow: 0 0 20px rgba(204, 255, 0, 0.15);
+}
+
+.value-glow-strong {
+  box-shadow: 0 0 30px rgba(204, 255, 0, 0.25);
+}
+
+/* Risk glow */
+.risk-glow {
+  box-shadow: 0 0 20px rgba(255, 46, 46, 0.15);
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-colors duration-200;
+}
+
+.card-hover:hover {
+  border-color: rgba(204, 255, 0, 0.5);
+}
+
+/* Live pulse */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.live-indicator {
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+/* Sidebar nav item */
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2 text-[#A1A1AA] hover:text-[#CCFF00] hover:bg-[#CCFF00]/5 transition-colors border-l-2 border-transparent hover:border-[#CCFF00];
+}
+
+.nav-item.active {
+  @apply text-[#CCFF00] bg-[#CCFF00]/5 border-l-2 border-[#CCFF00];
+}
+
+/* Badge styles */
+.badge-live {
+  @apply bg-[#FF2E2E] text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest;
+}
+
+.badge-value {
+  @apply bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest;
+}
+
+.badge-league {
+  @apply bg-[#27272A] text-[#A1A1AA] px-2 py-0.5 text-[10px] uppercase tracking-wider;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-[#CCFF00] text-black hover:bg-[#B3E600] rounded-sm font-bold uppercase tracking-wider text-sm h-10 px-6 transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-[#1E1E1E] text-white hover:bg-[#2A2A2A] border border-[#333] rounded-sm uppercase tracking-wider text-sm h-10 px-6 transition-colors duration-200;
+}
+
+/* Input styles */
+.input-dark {
+  @apply bg-[#050505] border border-[#27272A] text-white placeholder:text-[#52525B] focus:border-[#CCFF00] focus:ring-1 focus:ring-[#CCFF00] rounded-none h-10;
+}
+
+/* Profit/Loss colors */
+.text-profit {
+  @apply text-[#CCFF00];
+}
+
+.text-loss {
+  @apply text-[#FF2E2E];
+}
+
+/* Grid lines effect */
+.grid-lines {
+  background-image: 
+    linear-gradient(rgba(39, 39, 42, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 39, 42, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Noise texture overlay */
+.noise-overlay::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  z-index: 9999;
+}
+
+/* Table styles */
+.table-dark {
+  @apply w-full text-sm;
+}
+
+.table-dark th {
+  @apply text-left text-[10px] uppercase tracking-wider text-[#A1A1AA] font-medium py-2 px-3 border-b border-[#27272A];
+}
+
+.table-dark td {
+  @apply py-3 px-3 border-b border-[#27272A]/50;
+}
+
+.table-dark tr:hover {
+  @apply bg-[#0F0F0F];
+}
+
+/* Chart styling */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #27272A;
+  stroke-opacity: 0.3;
+}
+
+.recharts-tooltip-wrapper {
+  @apply !outline-none;
+}
+
+/* Selection highlight */
+.selection-highlight {
+  @apply ring-2 ring-[#CCFF00] ring-offset-2 ring-offset-[#050505];
+}
+
+/* Transitions */
+.transition-fast {
+  transition: all 0.15s ease;
+}
+
+.transition-medium {
+  transition: all 0.25s ease;
 }

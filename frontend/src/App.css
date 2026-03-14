@@ -1,34 +1,64 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+.App {
+  /* Base styles handled by Tailwind */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Animation keyframes */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
-.App-link {
-    color: #61dafb;
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(204, 255, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(204, 255, 0, 0.4);
+  }
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Sonner toast overrides */
+[data-sonner-toast] {
+  font-family: 'Manrope', sans-serif !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  border-color: #CCFF00 !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-color: #FF2E2E !important;
+}
+
+/* Custom selection */
+::selection {
+  background-color: rgba(204, 255, 0, 0.3);
+  color: white;
 }
