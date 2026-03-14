@@ -85,7 +85,11 @@ export default function ParlaysPage() {
     }
 
     try {
-      await api.post(`/parlays?name=${encodeURIComponent(parlayName || "Mi Combinada")}&stake=${parseFloat(stake) || 0}`, selections);
+      await api.post("/parlays", {
+        selections: selections,
+        name: parlayName || "Mi Combinada",
+        stake: parseFloat(stake) || null
+      });
       toast.success("Combinada creada");
       setSelections([]);
       setParlayName("");

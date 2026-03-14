@@ -547,8 +547,10 @@ async def create_parlay(parlay_data: ParlayCreate, current_user: dict = Depends(
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
+    # Create a copy for returning (insert_one modifies the dict adding _id)
+    parlay_response = parlay.copy()
     await db.parlays.insert_one(parlay)
-    return parlay
+    return parlay_response
 
 @api_router.get("/parlays")
 async def get_parlays(current_user: dict = Depends(get_current_user)):
@@ -644,8 +646,10 @@ async def save_prediction(prediction: PredictionCreate, current_user: dict = Dep
         "profit": None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
+    # Create a copy for returning (insert_one modifies the dict adding _id)
+    pred_response = pred_doc.copy()
     await db.predictions.insert_one(pred_doc)
-    return pred_doc
+    return pred_response
 
 @api_router.get("/predictions")
 async def get_predictions(current_user: dict = Depends(get_current_user)):
