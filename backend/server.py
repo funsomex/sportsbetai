@@ -553,9 +553,10 @@ async def create_parlay(parlay_data: ParlayCreate, current_user: dict = Depends(
     return parlay_response
 
 @api_router.get("/parlays")
-async def get_parlays(current_user: dict = Depends(get_current_user)):
-    parlays = await db.parlays.find({"user_id": current_user["id"]}, {"_id": 0}).to_list(100)
-    return {"parlays": parlays}
+async def get_parlays(skip: int = 0, limit: int = 20, current_user: dict = Depends(get_current_user)):
+    parlays = await db.parlays.find({"user_id": current_user["id"]}, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    total = await db.parlays.count_documents({"user_id": current_user["id"]})
+    return {"parlays": parlays, "total": total, "skip": skip, "limit": limit}
 
 @api_router.delete("/parlays/{parlay_id}")
 async def delete_parlay(parlay_id: str, current_user: dict = Depends(get_current_user)):
@@ -652,21 +653,39 @@ async def save_prediction(prediction: PredictionCreate, current_user: dict = Dep
     return pred_response
 
 @api_router.get("/predictions")
-async def get_predictions(current_user: dict = Depends(get_current_user)):
-    predictions = await db.predictions.find({"user_id": current_user["id"]}, {"_id": 0}).to_list(100)
-    return {"predictions": predictions}
+async def get_predictions(skip: int = 0, limit: int = 50, current_user: dict = Depends(get_current_user)):
+    predictions = await db.predictions.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.predictions.count_documents({"user_id": current_user["id"]})
+    return {"predictions": predictions, "total": total, "skip": skip, "limit": limit}
 
 @api_router.get("/stats")
 async def get_user_stats(current_user: dict = Depends(get_current_user)):
-    predictions = await db.predictions.find({"user_id": current_user["id"]}, {"_id": 0}).to_list(1000)
+    # Use aggregation for efficient stats calculation
+    pipeline = [
+        {"$match": {"user_id": current_user["id"]}},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "won": {"$sum": {"$cond": [{"$eq": ["$result", "won"]}, 1, 0]}},
+            "lost": {"$sum": {"$cond": [{"$eq": ["$result", "lost"]}, 1, 0]}},
+            "pending": {"$sum": {"$cond": [{"$eq": ["$result", "pending"]}, 1, 0]}},
+            "total_stake": {"$sum": {"$ifNull": ["$stake", 0]}},
+            "total_profit": {"$sum": {"$ifNull": ["$profit", 0]}}
+        }}
+    ]
+    result = await db.predictions.aggregate(pipeline).to_list(1)
     
-    total = len(predictions)
-    won = len([p for p in predictions if p.get("result") == "won"])
-    lost = len([p for p in predictions if p.get("result") == "lost"])
-    pending = len([p for p in predictions if p.get("result") == "pending"])
-    
-    total_stake = sum(p.get("stake", 0) for p in predictions)
-    total_profit = sum(p.get("profit", 0) or 0 for p in predictions)
+    if result:
+        stats = result[0]
+        total = stats["total"]
+        won = stats["won"]
+        lost = stats["lost"]
+        pending = stats["pending"]
+        total_stake = stats["total_stake"]
+        total_profit = stats["total_profit"]
+    else:
+        total = won = lost = pending = 0
+        total_stake = total_profit = 0
     
     return {
         "total_predictions": total,
