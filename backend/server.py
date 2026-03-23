@@ -14,7 +14,7 @@ import jwt
 import bcrypt
 import random
 import httpx
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import openai
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -572,64 +572,65 @@ async def analyze_match(request: AIAnalysisRequest, current_user: dict = Depends
     match = generate_mock_matches(count=1)[0]
     match["id"] = request.match_id
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"analysis_{request.match_id}_{current_user['id']}",
-            system_message="""Eres un experto analista de apuestas deportivas. Analiza partidos considerando:
-            - Estadísticas históricas y forma reciente
-            - Cuotas y valor esperado
-            - Factores externos (lesiones, motivación, etc.)
-            Proporciona análisis concisos y recomendaciones claras en español."""
-        ).with_model("openai", "gpt-5.2")
-        
-        prompt = f"""Analiza este partido:
-        
-        {match['home_team']} vs {match['away_team']}
-        Liga: {match['league']}
-        Deporte: {match['sport']}
-        
-        Estadísticas:
-        - {match['home_team']}: Posesión {match['stats']['home']['possession']}%, xG {match['stats']['home']['xG']}, Forma: {' '.join(match['stats']['home']['form'])}
-        - {match['away_team']}: Posesión {match['stats']['away']['possession']}%, xG {match['stats']['away']['xG']}, Forma: {' '.join(match['stats']['away']['form'])}
-        
-        Cuotas promedio:
-        - Local: {match['odds']['Bet365']['home']}
-        - Empate: {match['odds']['Bet365']['draw']}
-        - Visitante: {match['odds']['Bet365']['away']}
-        
-        Proporciona:
-        1. Análisis breve del partido
-        2. Probabilidades estimadas para cada resultado
-        3. ¿Hay value bet? ¿En qué selección?
-        4. Recomendación de apuesta (si existe valor)"""
-        
-        user_message = UserMessage(text=prompt)
-        analysis = await chat.send_message(user_message)
-        
-        return {
-            "match_id": request.match_id,
-            "match": match,
-            "analysis": analysis,
-            "generated_at": datetime.now(timezone.utc).isoformat()
-        }
-    except Exception as e:
-        logger.error(f"AI Analysis error: {e}")
-        # Fallback analysis
-        return {
-            "match_id": request.match_id,
-            "match": match,
-            "analysis": f"""📊 **Análisis de {match['home_team']} vs {match['away_team']}**
+    # Generate analysis based on stats (without external AI for free deployment)
+    home_form = match['stats']['home']['form']
+    away_form = match['stats']['away']['form']
+    home_wins = home_form.count('W')
+    away_wins = away_form.count('W')
+    
+    home_strength = (match['stats']['home']['possession'] / 100) * 0.3 + (match['stats']['home']['xG'] / 3) * 0.4 + (home_wins / 5) * 0.3
+    away_strength = (match['stats']['away']['possession'] / 100) * 0.3 + (match['stats']['away']['xG'] / 3) * 0.4 + (away_wins / 5) * 0.3
+    
+    total_strength = home_strength + away_strength + 0.2  # 0.2 for draw probability
+    home_prob = round((home_strength / total_strength) * 100, 1)
+    away_prob = round((away_strength / total_strength) * 100, 1)
+    draw_prob = round(100 - home_prob - away_prob, 1)
+    
+    # Check for value bets
+    home_implied = round((1 / match['odds']['Bet365']['home']) * 100, 1)
+    away_implied = round((1 / match['odds']['Bet365']['away']) * 100, 1)
+    
+    value_bet = None
+    if home_prob > home_implied + 5:
+        value_bet = f"✅ VALUE BET en {match['home_team']} (Local) - Prob. real {home_prob}% vs implícita {home_implied}%"
+    elif away_prob > away_implied + 5:
+        value_bet = f"✅ VALUE BET en {match['away_team']} (Visitante) - Prob. real {away_prob}% vs implícita {away_implied}%"
+    else:
+        value_bet = "❌ No se detecta value bet claro en este partido"
+    
+    analysis = f"""📊 **Análisis de {match['home_team']} vs {match['away_team']}**
 
-El equipo local muestra una posesión del {match['stats']['home']['possession']}% con un xG de {match['stats']['home']['xG']}. 
-Forma reciente: {' '.join(match['stats']['home']['form'])}
+**Estadísticas del Local ({match['home_team']}):**
+- Posesión: {match['stats']['home']['possession']}%
+- Expected Goals (xG): {match['stats']['home']['xG']}
+- Forma reciente: {' '.join(match['stats']['home']['form'])}
 
-El visitante tiene {match['stats']['away']['possession']}% de posesión y xG de {match['stats']['away']['xG']}.
-Forma reciente: {' '.join(match['stats']['away']['form'])}
+**Estadísticas del Visitante ({match['away_team']}):**
+- Posesión: {match['stats']['away']['possession']}%
+- Expected Goals (xG): {match['stats']['away']['xG']}
+- Forma reciente: {' '.join(match['stats']['away']['form'])}
 
-**Recomendación:** Basado en las estadísticas, el mercado de Over/Under 2.5 goles podría ofrecer valor.""",
-            "generated_at": datetime.now(timezone.utc).isoformat()
-        }
+**Probabilidades Calculadas:**
+- {match['home_team']} (Local): {home_prob}%
+- Empate: {draw_prob}%
+- {match['away_team']} (Visitante): {away_prob}%
+
+**Cuotas disponibles:**
+- Local: {match['odds']['Bet365']['home']}
+- Empate: {match['odds']['Bet365']['draw']}
+- Visitante: {match['odds']['Bet365']['away']}
+
+**Recomendación:**
+{value_bet}
+
+**Nota:** Este análisis utiliza algoritmos estadísticos basados en xG, posesión y forma reciente."""
+    
+    return {
+        "match_id": request.match_id,
+        "match": match,
+        "analysis": analysis,
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
 
 # ============== HISTORY & STATS ==============
 
