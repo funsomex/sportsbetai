@@ -132,6 +132,11 @@ export default function LoginPage() {
                 Regístrate
               </Link>
             </p>
+            <p className="mt-3 text-center text-[#A1A1AA] text-sm">
+              <Link to="/forgot-password" className="text-[#71717A] hover:text-[#CCFF00] hover:underline transition-colors" data-testid="forgot-password-link">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
           </div>
         </div>
       </div>

@@ -40,6 +40,7 @@ export { api, API };
 // Lazy load pages
 const LoginPage = React.lazy(() => import("./pages/LoginPage"));
 const RegisterPage = React.lazy(() => import("./pages/RegisterPage"));
+const ForgotPasswordPage = React.lazy(() => import("./pages/ForgotPasswordPage"));
 const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
 const MatchesPage = React.lazy(() => import("./pages/MatchesPage"));
 const ValueBetsPage = React.lazy(() => import("./pages/ValueBetsPage"));
@@ -151,6 +152,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route
               path="/"
               element={

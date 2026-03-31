@@ -334,45 +334,159 @@ def calculate_value_bets(matches: List[Dict]) -> List[Dict]:
 
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
-    existing = await db.users.find_one({"email": user_data.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    user_id = str(uuid.uuid4())
-    user_doc = {
-        "id": user_id,
-        "email": user_data.email,
-        "name": user_data.name,
-        "password": hash_password(user_data.password),
-        "telegram_chat_id": None,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.users.insert_one(user_doc)
-    
-    token = create_token(user_id)
-    user_response = UserResponse(
-        id=user_id,
-        email=user_data.email,
-        name=user_data.name,
-        created_at=user_doc["created_at"]
-    )
-    return TokenResponse(access_token=token, user=user_response)
+    try:
+        existing = await db.users.find_one({"email": user_data.email})
+        if existing:
+            raise HTTPException(status_code=400, detail="Este email ya está registrado")
+        
+        user_id = str(uuid.uuid4())
+        user_doc = {
+            "id": user_id,
+            "email": user_data.email,
+            "name": user_data.name,
+            "password": hash_password(user_data.password),
+            "telegram_chat_id": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(user_doc)
+        
+        token = create_token(user_id)
+        user_response = UserResponse(
+            id=user_id,
+            email=user_data.email,
+            name=user_data.name,
+            created_at=user_doc["created_at"]
+        )
+        return TokenResponse(access_token=token, user=user_response)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en registro: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error de conexión a la base de datos. Por favor intenta más tarde.")
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
-    user = await db.users.find_one({"email": credentials.email})
-    if not user or not verify_password(credentials.password, user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    token = create_token(user["id"])
-    user_response = UserResponse(
-        id=user["id"],
-        email=user["email"],
-        name=user["name"],
-        telegram_chat_id=user.get("telegram_chat_id"),
-        created_at=user["created_at"]
-    )
-    return TokenResponse(access_token=token, user=user_response)
+    try:
+        user = await db.users.find_one({"email": credentials.email})
+        if not user or not verify_password(credentials.password, user["password"]):
+            raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+        
+        token = create_token(user["id"])
+        user_response = UserResponse(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            telegram_chat_id=user.get("telegram_chat_id"),
+            created_at=user["created_at"]
+        )
+        return TokenResponse(access_token=token, user=user_response)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos. Por favor intenta más tarde.")
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetConfirm(BaseModel):
+    email: EmailStr
+    reset_code: str
+    new_password: str
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: PasswordResetRequest):
+    """Solicitar recuperación de contraseña"""
+    try:
+        user = await db.users.find_one({"email": data.email})
+        if not user:
+            # Por seguridad, no revelamos si el email existe o no
+            return {"message": "Si el email está registrado, recibirás instrucciones para recuperar tu contraseña"}
+        
+        # Generar código de 6 dígitos
+        reset_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+        
+        # Guardar el código en la base de datos
+        await db.password_resets.update_one(
+            {"email": data.email},
+            {"$set": {
+                "email": data.email,
+                "code": reset_code,
+                "expires_at": expiry.isoformat(),
+                "used": False
+            }},
+            upsert=True
+        )
+        
+        # Intentar enviar por Telegram si el usuario tiene configurado
+        telegram_sent = False
+        if user.get("telegram_chat_id") and TELEGRAM_BOT_TOKEN:
+            try:
+                async with httpx.AsyncClient() as client:
+                    message = f"🔐 *Recuperación de Contraseña*\n\nTu código de recuperación es:\n\n`{reset_code}`\n\nEste código expira en 15 minutos."
+                    await client.post(
+                        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                        json={
+                            "chat_id": user["telegram_chat_id"],
+                            "text": message,
+                            "parse_mode": "Markdown"
+                        }
+                    )
+                    telegram_sent = True
+            except Exception as e:
+                logger.error(f"Error enviando código por Telegram: {e}")
+        
+        response_msg = "Si el email está registrado, recibirás instrucciones para recuperar tu contraseña"
+        if telegram_sent:
+            response_msg = "Te hemos enviado un código de recuperación por Telegram"
+        
+        # Para desarrollo, también devolvemos el código (quitar en producción real)
+        return {"message": response_msg, "debug_code": reset_code}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en forgot-password: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al procesar la solicitud")
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: PasswordResetConfirm):
+    """Confirmar el cambio de contraseña con el código"""
+    try:
+        # Buscar el código de reset
+        reset_record = await db.password_resets.find_one({
+            "email": data.email,
+            "code": data.reset_code,
+            "used": False
+        })
+        
+        if not reset_record:
+            raise HTTPException(status_code=400, detail="Código inválido o expirado")
+        
+        # Verificar expiración
+        expires_at = datetime.fromisoformat(reset_record["expires_at"])
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(status_code=400, detail="El código ha expirado")
+        
+        # Actualizar contraseña
+        new_hashed = hash_password(data.new_password)
+        await db.users.update_one(
+            {"email": data.email},
+            {"$set": {"password": new_hashed}}
+        )
+        
+        # Marcar código como usado
+        await db.password_resets.update_one(
+            {"_id": reset_record["_id"]},
+            {"$set": {"used": True}}
+        )
+        
+        return {"message": "Contraseña actualizada correctamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en reset-password: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al cambiar la contraseña")
 
 @api_router.get("/auth/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
@@ -728,6 +842,27 @@ async def root():
 @api_router.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+@api_router.get("/health/db")
+async def db_health_check():
+    """Verificar conexión a MongoDB"""
+    try:
+        # Intentar hacer un ping a la base de datos
+        await db.command("ping")
+        user_count = await db.users.count_documents({})
+        return {
+            "status": "connected",
+            "database": os.environ.get('DB_NAME', 'unknown'),
+            "users_count": user_count,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        logger.error(f"DB Health check failed: {str(e)}")
+        return {
+            "status": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
 
 # Include the router in the main app
 app.include_router(api_router)

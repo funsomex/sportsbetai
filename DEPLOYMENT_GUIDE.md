@@ -1,13 +1,46 @@
 # SportsBetAI - Guía de Deployment Gratuito
 
-## Arquitectura Recomendada (100% Gratis)
+## Arquitectura Actual (100% Gratis)
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│     VERCEL      │     │    RAILWAY      │     │  MONGODB ATLAS  │
-│    (Frontend)   │────▶│    (Backend)    │────▶│   (Database)    │
-│      FREE       │     │      FREE       │     │      FREE       │
+│    NETLIFY      │     │     RENDER      │     │  MONGODB ATLAS  │
+│   (Frontend)    │────▶│    (Backend)    │────▶│   (Database)    │
+│     FREE        │     │      FREE       │     │      FREE       │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+**URLs Actuales:**
+- Frontend: https://mellifluous-sherbet-50a651.netlify.app
+- Backend: https://sportsbetai.onrender.com
+
+---
+
+## ⚠️ SOLUCIÓN DE PROBLEMAS COMUNES
+
+### Error "Internal Server Error" o "Error al iniciar sesión"
+
+**Causa:** MongoDB Atlas está bloqueando las conexiones desde Render.
+
+**Solución:**
+
+1. Ve a tu cluster en [MongoDB Atlas](https://cloud.mongodb.com)
+2. Click en "Network Access" en el menú lateral
+3. Click "ADD IP ADDRESS"
+4. Selecciona **"Allow Access from Anywhere"** (0.0.0.0/0)
+5. Click "Confirm"
+6. Espera 1-2 minutos para que se aplique
+
+### Verificar la conexión
+
+Después de configurar, verifica con:
+```bash
+curl https://sportsbetai.onrender.com/api/health/db
+```
+
+Debería responder:
+```json
+{"status": "connected", "database": "sportsbetai", "users_count": 0}
 ```
 
 ---
