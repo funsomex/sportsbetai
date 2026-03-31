@@ -19,6 +19,7 @@ export default function OddsComparisonPage() {
 
   useEffect(() => {
     loadMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMatches = async () => {

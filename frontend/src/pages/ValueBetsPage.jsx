@@ -22,6 +22,7 @@ export default function ValueBetsPage() {
 
   useEffect(() => {
     loadValueBets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minValue, selectedSport]);
 
   const loadValueBets = async () => {

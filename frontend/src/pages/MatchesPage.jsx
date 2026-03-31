@@ -46,6 +46,7 @@ export default function MatchesPage() {
 
   useEffect(() => {
     loadMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport, selectedStatus]);
 
   const loadMatches = async () => {
