@@ -921,6 +921,232 @@ async def get_all_odds():
     
     return {"matches": [], "total": 0, "source": "none", "message": "API key not configured"}
 
+# ============== AUTO PARLAY GENERATOR ==============
+
+class AutoParlayRequest(BaseModel):
+    num_selections: int = 3  # Number of matches to include
+    sports: List[str] = []  # Filter by sports (empty = all)
+    min_odds: float = 1.20  # Minimum odds per selection
+    max_odds: float = 2.50  # Maximum odds per selection
+    target_total_odds: float = None  # Target combined odds (optional)
+    risk_level: str = "medium"  # low, medium, high
+    stake: float = None  # Amount to bet
+
+@api_router.post("/parlays/generate")
+async def generate_auto_parlay(request: AutoParlayRequest):
+    """
+    Genera combinadas automáticamente basadas en análisis de value bets y cuotas reales
+    """
+    try:
+        # Get real matches
+        matches = await get_all_real_matches()
+        if not matches:
+            raise HTTPException(status_code=404, detail="No hay partidos disponibles")
+        
+        # Filter by sports if specified
+        if request.sports:
+            sport_map = {
+                "futbol": "football", "fútbol": "football", "football": "football", "soccer": "football",
+                "baloncesto": "basketball", "basketball": "basketball", "nba": "basketball",
+                "beisbol": "baseball", "béisbol": "baseball", "baseball": "baseball", "mlb": "baseball",
+                "hockey": "hockey", "nhl": "hockey",
+                "mma": "mma", "ufc": "mma",
+                "tenis": "tennis", "tennis": "tennis"
+            }
+            allowed_sports = [sport_map.get(s.lower(), s.lower()) for s in request.sports]
+            matches = [m for m in matches if m.get("sport", "").lower() in allowed_sports]
+        
+        if not matches:
+            raise HTTPException(status_code=404, detail="No hay partidos para los deportes seleccionados")
+        
+        # Risk level configurations
+        risk_configs = {
+            "low": {"min_odds": 1.15, "max_odds": 1.60, "confidence_min": 75},
+            "medium": {"min_odds": 1.40, "max_odds": 2.20, "confidence_min": 60},
+            "high": {"min_odds": 1.80, "max_odds": 3.50, "confidence_min": 45}
+        }
+        config = risk_configs.get(request.risk_level, risk_configs["medium"])
+        
+        # Override with user preferences if provided
+        min_odds = request.min_odds or config["min_odds"]
+        max_odds = request.max_odds or config["max_odds"]
+        
+        # Analyze each match and find best selections
+        candidates = []
+        for match in matches:
+            if not match.get("odds"):
+                continue
+            
+            # Find best odds for each outcome
+            for market in ["home", "away"]:
+                best_odds = 0
+                best_bookmaker = ""
+                all_odds = []
+                
+                for bookmaker, odds in match["odds"].items():
+                    if market in odds and odds[market] > 0:
+                        all_odds.append(odds[market])
+                        if odds[market] > best_odds:
+                            best_odds = odds[market]
+                            best_bookmaker = bookmaker
+                
+                if best_odds < min_odds or best_odds > max_odds:
+                    continue
+                
+                if len(all_odds) < 2:
+                    continue
+                
+                # Calculate confidence based on odds consistency
+                avg_odds = sum(all_odds) / len(all_odds)
+                odds_spread = (max(all_odds) - min(all_odds)) / min(all_odds) * 100
+                
+                # Higher confidence if odds are consistent across bookmakers
+                confidence = max(40, min(95, 85 - odds_spread))
+                
+                # Calculate implied value
+                avg_implied = 1 / avg_odds
+                best_implied = 1 / best_odds
+                value = ((avg_implied / best_implied) - 1) * 100
+                
+                selection_name = match["home_team"] if market == "home" else match["away_team"]
+                
+                # Score for ranking (combines value, confidence, and odds attractiveness)
+                score = (value * 0.4) + (confidence * 0.4) + ((best_odds - 1) * 10 * 0.2)
+                
+                candidates.append({
+                    "match_id": match["id"],
+                    "match": f"{match['home_team']} vs {match['away_team']}",
+                    "home_team": match["home_team"],
+                    "away_team": match["away_team"],
+                    "league": match["league"],
+                    "sport": match["sport"],
+                    "start_time": match["start_time"],
+                    "market": market,
+                    "selection": selection_name,
+                    "odds": best_odds,
+                    "bookmaker": best_bookmaker,
+                    "confidence": round(confidence, 1),
+                    "value": round(value, 1),
+                    "score": round(score, 2)
+                })
+        
+        if len(candidates) < request.num_selections:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Solo hay {len(candidates)} selecciones válidas. Ajusta los filtros."
+            )
+        
+        # Sort by score and select top candidates
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Select ensuring variety (different matches)
+        selected = []
+        used_matches = set()
+        
+        for candidate in candidates:
+            if candidate["match_id"] not in used_matches:
+                selected.append(candidate)
+                used_matches.add(candidate["match_id"])
+                if len(selected) >= request.num_selections:
+                    break
+        
+        if len(selected) < request.num_selections:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se pueden generar {request.num_selections} selecciones diferentes"
+            )
+        
+        # Calculate totals
+        total_odds = 1.0
+        for sel in selected:
+            total_odds *= sel["odds"]
+        
+        avg_confidence = sum(s["confidence"] for s in selected) / len(selected)
+        
+        # Generate parlay result
+        parlay = {
+            "id": str(uuid.uuid4()),
+            "name": f"Combinada Auto - {request.risk_level.upper()}",
+            "selections": selected,
+            "total_odds": round(total_odds, 2),
+            "stake": request.stake,
+            "potential_profit": round(request.stake * total_odds, 2) if request.stake else None,
+            "avg_confidence": round(avg_confidence, 1),
+            "risk_level": request.risk_level,
+            "sports_included": list(set(s["sport"] for s in selected)),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "is_auto_generated": True,
+            "recommendation": get_parlay_recommendation(total_odds, avg_confidence, request.risk_level)
+        }
+        
+        return parlay
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating auto parlay: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al generar combinada: {str(e)}")
+
+def get_parlay_recommendation(total_odds: float, confidence: float, risk_level: str) -> dict:
+    """Generate recommendation based on parlay analysis"""
+    
+    # Calculate win probability estimate
+    implied_prob = (1 / total_odds) * 100
+    
+    # Adjust based on confidence
+    adjusted_prob = implied_prob * (confidence / 100) * 1.1  # Slight boost for our analysis
+    
+    # Determine recommendation
+    if adjusted_prob > 40:
+        rating = "ALTA"
+        emoji = "🟢"
+        message = "Combinada con buena probabilidad. Considerar apuesta moderada."
+    elif adjusted_prob > 25:
+        rating = "MEDIA"
+        emoji = "🟡"
+        message = "Combinada equilibrada. Apostar con precaución."
+    else:
+        rating = "BAJA"
+        emoji = "🔴"
+        message = "Combinada arriesgada. Solo para apuestas pequeñas."
+    
+    # Stake suggestion based on bankroll management
+    suggested_stake_pct = {
+        "low": 3.0,
+        "medium": 2.0,
+        "high": 1.0
+    }.get(risk_level, 2.0)
+    
+    return {
+        "rating": rating,
+        "emoji": emoji,
+        "message": message,
+        "win_probability": round(adjusted_prob, 1),
+        "suggested_stake_percentage": suggested_stake_pct,
+        "tip": f"Apuesta sugerida: {suggested_stake_pct}% de tu bankroll"
+    }
+
+@api_router.get("/parlays/suggestions")
+async def get_parlay_suggestions():
+    """Get multiple auto-generated parlay suggestions"""
+    suggestions = []
+    
+    # Generate 3 different parlays with different risk levels
+    for risk, num in [("low", 2), ("medium", 3), ("high", 4)]:
+        try:
+            request = AutoParlayRequest(
+                num_selections=num,
+                risk_level=risk,
+                stake=10000  # Example stake
+            )
+            parlay = await generate_auto_parlay(request)
+            suggestions.append(parlay)
+        except Exception as e:
+            logger.warning(f"Could not generate {risk} parlay: {e}")
+            continue
+    
+    return {"suggestions": suggestions, "total": len(suggestions)}
+
 # ============== PARLAYS / COMBINADAS ==============
 
 @api_router.post("/parlays")

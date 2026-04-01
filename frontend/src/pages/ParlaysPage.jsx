@@ -7,9 +7,14 @@ import {
   Trash,
   ShoppingCart,
   X,
-  Calculator,
-  TelegramLogo,
-  CheckCircle
+  Lightning,
+  CheckCircle,
+  CaretDown,
+  Trophy,
+  Target,
+  Fire,
+  ArrowRight,
+  Sparkle
 } from "@phosphor-icons/react";
 
 export default function ParlaysPage() {
@@ -20,6 +25,26 @@ export default function ParlaysPage() {
   const [stake, setStake] = useState("");
   const [loading, setLoading] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  
+  // Auto generator state
+  const [showGenerator, setShowGenerator] = useState(false);
+  const [generatorLoading, setGeneratorLoading] = useState(false);
+  const [generatedParlay, setGeneratedParlay] = useState(null);
+  const [genConfig, setGenConfig] = useState({
+    num_selections: 3,
+    risk_level: "medium",
+    sports: [],
+    stake: 10000
+  });
+
+  const sportOptions = [
+    { value: "football", label: "Fútbol" },
+    { value: "basketball", label: "Baloncesto" },
+    { value: "baseball", label: "Béisbol" },
+    { value: "hockey", label: "Hockey" },
+    { value: "mma", label: "MMA/UFC" },
+    { value: "tennis", label: "Tenis" }
+  ];
 
   useEffect(() => {
     loadData();
@@ -29,7 +54,7 @@ export default function ParlaysPage() {
   const loadData = async () => {
     try {
       const [matchesRes, parlaysRes] = await Promise.all([
-        api.get("/matches?status=upcoming&limit=30"),
+        api.get("/matches?limit=30"),
         api.get("/parlays")
       ]);
       setMatches(matchesRes.data.matches || []);
@@ -38,6 +63,37 @@ export default function ParlaysPage() {
       toast.error("Error cargando datos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAutoParlay = async () => {
+    setGeneratorLoading(true);
+    try {
+      const response = await api.post("/parlays/generate", genConfig);
+      setGeneratedParlay(response.data);
+      toast.success("¡Combinada generada con éxito!");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error generando combinada");
+    } finally {
+      setGeneratorLoading(false);
+    }
+  };
+
+  const saveGeneratedParlay = async () => {
+    if (!generatedParlay) return;
+    
+    try {
+      await api.post("/parlays", {
+        selections: generatedParlay.selections,
+        name: generatedParlay.name,
+        stake: genConfig.stake
+      });
+      toast.success("Combinada guardada");
+      setGeneratedParlay(null);
+      setShowGenerator(false);
+      loadData();
+    } catch (error) {
+      toast.error("Error guardando combinada");
     }
   };
 
@@ -113,6 +169,7 @@ export default function ParlaysPage() {
   };
 
   const getBestOdds = (odds, market) => {
+    if (!odds) return { bookmaker: "", value: 0 };
     let best = { bookmaker: "", value: 0 };
     for (const [bookmaker, markets] of Object.entries(odds)) {
       if (markets[market] > best.value) {
@@ -120,6 +177,28 @@ export default function ParlaysPage() {
       }
     }
     return best;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const RiskBadge = ({ level }) => {
+    const config = {
+      low: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "BAJO", icon: Target },
+      medium: { color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", label: "MEDIO", icon: Trophy },
+      high: { color: "bg-red-500/20 text-red-400 border-red-500/30", label: "ALTO", icon: Fire }
+    };
+    const cfg = config[level] || config.medium;
+    const Icon = cfg.icon;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium border ${cfg.color}`}>
+        <Icon size={12} weight="fill" />
+        {cfg.label}
+      </span>
+    );
   };
 
   const MatchCard = ({ match }) => {
@@ -130,8 +209,9 @@ export default function ParlaysPage() {
 
     return (
       <div className={`bg-[#0A0A0A] border ${isSelected ? "border-[#CCFF00]" : "border-[#27272A]"} transition-colors`}>
-        <div className="px-4 py-2 border-b border-[#27272A] bg-[#0F0F0F]">
+        <div className="px-4 py-2 border-b border-[#27272A] bg-[#0F0F0F] flex justify-between items-center">
           <span className="badge-league">{match.league}</span>
+          <span className="text-[10px] text-[#52525B]">{formatDate(match.start_time)}</span>
         </div>
         <div className="p-4">
           <div className="text-sm font-medium text-white mb-1">{match.home_team}</div>
@@ -139,40 +219,49 @@ export default function ParlaysPage() {
           
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => addSelection(match, "home", match.home_team, bestHome.value)}
+              onClick={() => bestHome.value > 0 && addSelection(match, "home", match.home_team, bestHome.value)}
+              disabled={bestHome.value === 0}
               className={`p-2 text-center border transition-colors ${
                 isSelected?.market === "home"
                   ? "bg-[#CCFF00] border-[#CCFF00] text-black"
-                  : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                  : bestHome.value > 0 
+                    ? "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                    : "bg-[#050505] border-[#27272A] opacity-50 cursor-not-allowed"
               }`}
               data-testid="select-home"
             >
               <div className="text-[10px] text-[#A1A1AA] uppercase mb-1">1</div>
-              <div className="font-data font-bold">{bestHome.value}</div>
+              <div className="font-data font-bold">{bestHome.value > 0 ? bestHome.value.toFixed(2) : "-"}</div>
             </button>
             <button
-              onClick={() => addSelection(match, "draw", "Empate", bestDraw.value)}
+              onClick={() => bestDraw.value > 0 && addSelection(match, "draw", "Empate", bestDraw.value)}
+              disabled={bestDraw.value === 0}
               className={`p-2 text-center border transition-colors ${
                 isSelected?.market === "draw"
                   ? "bg-[#CCFF00] border-[#CCFF00] text-black"
-                  : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                  : bestDraw.value > 0
+                    ? "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                    : "bg-[#050505] border-[#27272A] opacity-50 cursor-not-allowed"
               }`}
               data-testid="select-draw"
             >
               <div className="text-[10px] text-[#A1A1AA] uppercase mb-1">X</div>
-              <div className="font-data font-bold">{bestDraw.value}</div>
+              <div className="font-data font-bold">{bestDraw.value > 0 ? bestDraw.value.toFixed(2) : "-"}</div>
             </button>
             <button
-              onClick={() => addSelection(match, "away", match.away_team, bestAway.value)}
+              onClick={() => bestAway.value > 0 && addSelection(match, "away", match.away_team, bestAway.value)}
+              disabled={bestAway.value === 0}
               className={`p-2 text-center border transition-colors ${
                 isSelected?.market === "away"
                   ? "bg-[#CCFF00] border-[#CCFF00] text-black"
-                  : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                  : bestAway.value > 0
+                    ? "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                    : "bg-[#050505] border-[#27272A] opacity-50 cursor-not-allowed"
               }`}
               data-testid="select-away"
             >
               <div className="text-[10px] text-[#A1A1AA] uppercase mb-1">2</div>
-              <div className="font-data font-bold">{bestAway.value}</div>
+              <div className="font-data font-bold">{bestAway.value > 0 ? bestAway.value.toFixed(2) : "-"}</div>
             </button>
           </div>
         </div>
@@ -184,35 +273,46 @@ export default function ParlaysPage() {
     <Layout>
       <div className="space-y-6" data-testid="parlays-page">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl md:text-4xl font-black uppercase tracking-tight text-white">
               Combinadas
             </h1>
             <p className="text-[#A1A1AA] text-sm mt-1">
-              Crea combinadas de hasta 6 selecciones
+              Crea combinadas manuales o genera automáticamente con IA
             </p>
           </div>
           
-          <button
-            onClick={() => setShowCart(true)}
-            className="relative bg-[#CCFF00] text-black p-2.5 hover:bg-[#B3E600] transition-colors"
-            data-testid="cart-button"
-          >
-            <ShoppingCart size={24} weight="bold" />
-            {selections.length > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#FF2E2E] text-white text-xs font-bold flex items-center justify-center">
-                {selections.length}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowGenerator(true)}
+              className="bg-gradient-to-r from-[#CCFF00] to-[#00E5FF] text-black font-bold uppercase tracking-wider px-4 h-11 hover:opacity-90 transition-opacity flex items-center gap-2"
+              data-testid="auto-generate-button"
+            >
+              <Sparkle size={20} weight="fill" />
+              Generar Auto
+            </button>
+            
+            <button
+              onClick={() => setShowCart(true)}
+              className="relative bg-[#0A0A0A] border border-[#27272A] text-white p-2.5 hover:border-[#CCFF00]/50 transition-colors"
+              data-testid="cart-button"
+            >
+              <ShoppingCart size={24} />
+              {selections.length > 0 && (
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#CCFF00] text-black text-xs font-bold flex items-center justify-center">
+                  {selections.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Matches Section */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="font-heading text-lg font-bold uppercase tracking-wider text-white">
-              Próximos Partidos
+              Selección Manual
             </h2>
             
             {loading ? (
@@ -253,15 +353,18 @@ export default function ParlaysPage() {
                       </button>
                     </div>
                     <div className="space-y-2 mb-3">
-                      {parlay.selections.map((sel, idx) => (
+                      {parlay.selections?.slice(0, 3).map((sel, idx) => (
                         <div key={idx} className="text-xs text-[#A1A1AA] flex justify-between">
-                          <span>{sel.selection}</span>
-                          <span className="font-data">{sel.odds}</span>
+                          <span className="truncate mr-2">{sel.selection}</span>
+                          <span className="font-data">{sel.odds?.toFixed(2)}</span>
                         </div>
                       ))}
+                      {parlay.selections?.length > 3 && (
+                        <div className="text-xs text-[#52525B]">+{parlay.selections.length - 3} más</div>
+                      )}
                     </div>
                     <div className="pt-3 border-t border-[#27272A] flex justify-between items-center">
-                      <span className="text-xs text-[#A1A1AA]">{parlay.selections.length} sel.</span>
+                      <span className="text-xs text-[#A1A1AA]">{parlay.selections?.length || 0} sel.</span>
                       <span className="font-data text-lg font-bold text-[#CCFF00]">@{parlay.total_odds}</span>
                     </div>
                   </div>
@@ -275,6 +378,251 @@ export default function ParlaysPage() {
           </div>
         </div>
 
+        {/* Auto Generator Modal */}
+        {showGenerator && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70" onClick={() => !generatorLoading && setShowGenerator(false)} />
+            <div className="relative bg-[#0A0A0A] border border-[#27272A] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="sticky top-0 bg-[#0A0A0A] px-6 py-4 border-b border-[#27272A] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#CCFF00] to-[#00E5FF] flex items-center justify-center">
+                    <Lightning size={24} weight="fill" className="text-black" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold uppercase text-white">Generador Automático</h3>
+                    <p className="text-xs text-[#A1A1AA]">IA analiza y sugiere la mejor combinada</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !generatorLoading && setShowGenerator(false)}
+                  className="text-[#A1A1AA] hover:text-white"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {!generatedParlay ? (
+                  <>
+                    {/* Configuration */}
+                    <div className="space-y-4">
+                      {/* Number of selections */}
+                      <div>
+                        <label className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-2 block">
+                          Número de Partidos
+                        </label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {[2, 3, 4, 5, 6].map(num => (
+                            <button
+                              key={num}
+                              onClick={() => setGenConfig({...genConfig, num_selections: num})}
+                              className={`h-12 font-data text-lg font-bold border transition-colors ${
+                                genConfig.num_selections === num
+                                  ? "bg-[#CCFF00] border-[#CCFF00] text-black"
+                                  : "bg-[#050505] border-[#27272A] text-white hover:border-[#CCFF00]/50"
+                              }`}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Risk Level */}
+                      <div>
+                        <label className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-2 block">
+                          Nivel de Riesgo
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { value: "low", label: "Bajo", desc: "Cuotas 1.15-1.60", icon: Target, color: "green" },
+                            { value: "medium", label: "Medio", desc: "Cuotas 1.40-2.20", icon: Trophy, color: "yellow" },
+                            { value: "high", label: "Alto", desc: "Cuotas 1.80-3.50", icon: Fire, color: "red" }
+                          ].map(risk => (
+                            <button
+                              key={risk.value}
+                              onClick={() => setGenConfig({...genConfig, risk_level: risk.value})}
+                              className={`p-3 border transition-colors text-left ${
+                                genConfig.risk_level === risk.value
+                                  ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                  : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                              }`}
+                            >
+                              <risk.icon size={20} weight="fill" className={`mb-2 ${
+                                risk.color === "green" ? "text-green-400" :
+                                risk.color === "yellow" ? "text-yellow-400" : "text-red-400"
+                              }`} />
+                              <div className="text-sm font-medium text-white">{risk.label}</div>
+                              <div className="text-[10px] text-[#52525B]">{risk.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Sports Filter */}
+                      <div>
+                        <label className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-2 block">
+                          Deportes (opcional)
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {sportOptions.map(sport => (
+                            <button
+                              key={sport.value}
+                              onClick={() => {
+                                const current = genConfig.sports || [];
+                                const updated = current.includes(sport.value)
+                                  ? current.filter(s => s !== sport.value)
+                                  : [...current, sport.value];
+                                setGenConfig({...genConfig, sports: updated});
+                              }}
+                              className={`px-3 py-1.5 text-xs border transition-colors ${
+                                genConfig.sports?.includes(sport.value)
+                                  ? "bg-[#CCFF00] border-[#CCFF00] text-black"
+                                  : "bg-[#050505] border-[#27272A] text-[#A1A1AA] hover:border-[#CCFF00]/50"
+                              }`}
+                            >
+                              {sport.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-[#52525B] mt-1">Deja vacío para incluir todos</p>
+                      </div>
+
+                      {/* Stake */}
+                      <div>
+                        <label className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-2 block">
+                          Monto a Apostar ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={genConfig.stake}
+                          onChange={(e) => setGenConfig({...genConfig, stake: parseFloat(e.target.value) || 0})}
+                          className="w-full bg-[#050505] border border-[#27272A] text-white px-4 h-12 font-data text-lg focus:border-[#CCFF00] outline-none"
+                          placeholder="10000"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Generate Button */}
+                    <button
+                      onClick={generateAutoParlay}
+                      disabled={generatorLoading}
+                      className="w-full bg-gradient-to-r from-[#CCFF00] to-[#00E5FF] text-black font-bold uppercase tracking-wider h-14 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                      data-testid="generate-parlay-button"
+                    >
+                      {generatorLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                          Analizando partidos...
+                        </>
+                      ) : (
+                        <>
+                          <Lightning size={24} weight="fill" />
+                          Generar Combinada
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  /* Generated Result */
+                  <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-heading font-bold text-white uppercase">{generatedParlay.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <RiskBadge level={generatedParlay.risk_level} />
+                          <span className="text-xs text-[#A1A1AA]">{generatedParlay.selections?.length} selecciones</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-[#A1A1AA]">Cuota Total</div>
+                        <div className="font-data text-3xl font-bold text-[#CCFF00]">@{generatedParlay.total_odds}</div>
+                      </div>
+                    </div>
+
+                    {/* Recommendation */}
+                    {generatedParlay.recommendation && (
+                      <div className={`p-4 border ${
+                        generatedParlay.recommendation.rating === "ALTA" ? "bg-green-500/10 border-green-500/30" :
+                        generatedParlay.recommendation.rating === "MEDIA" ? "bg-yellow-500/10 border-yellow-500/30" :
+                        "bg-red-500/10 border-red-500/30"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{generatedParlay.recommendation.emoji}</span>
+                          <span className="font-bold text-white">Probabilidad: {generatedParlay.recommendation.win_probability}%</span>
+                        </div>
+                        <p className="text-sm text-[#A1A1AA]">{generatedParlay.recommendation.message}</p>
+                        <p className="text-xs text-[#00E5FF] mt-2">{generatedParlay.recommendation.tip}</p>
+                      </div>
+                    )}
+
+                    {/* Selections */}
+                    <div className="space-y-2">
+                      {generatedParlay.selections?.map((sel, idx) => (
+                        <div key={idx} className="bg-[#050505] border border-[#27272A] p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] uppercase tracking-wider text-[#52525B]">{sel.league}</span>
+                                <span className="text-[10px] text-[#00E5FF]">{sel.confidence}% conf.</span>
+                              </div>
+                              <div className="text-sm text-white">{sel.match}</div>
+                              <div className="text-sm text-[#CCFF00] font-medium mt-1">
+                                <ArrowRight size={12} className="inline mr-1" />
+                                {sel.selection}
+                              </div>
+                            </div>
+                            <div className="text-right ml-3">
+                              <div className="font-data text-xl font-bold text-white">{sel.odds?.toFixed(2)}</div>
+                              <div className="text-[10px] text-[#52525B]">{sel.bookmaker}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Potential Profit */}
+                    <div className="bg-[#050505] border border-[#CCFF00]/30 p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-xs text-[#A1A1AA]">Apuesta</div>
+                          <div className="font-data text-xl text-white">${genConfig.stake?.toLocaleString()}</div>
+                        </div>
+                        <ArrowRight size={24} className="text-[#CCFF00]" />
+                        <div className="text-right">
+                          <div className="text-xs text-[#A1A1AA]">Ganancia Potencial</div>
+                          <div className="font-data text-2xl font-bold text-[#CCFF00]">
+                            ${generatedParlay.potential_profit?.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setGeneratedParlay(null)}
+                        className="bg-[#050505] border border-[#27272A] text-white font-bold uppercase tracking-wider h-12 hover:border-[#CCFF00]/50 transition-colors"
+                      >
+                        Regenerar
+                      </button>
+                      <button
+                        onClick={saveGeneratedParlay}
+                        className="bg-[#CCFF00] text-black font-bold uppercase tracking-wider h-12 hover:bg-[#B3E600] transition-colors flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle size={20} weight="bold" />
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Cart Drawer */}
         {showCart && (
           <div className="fixed inset-0 z-50 flex">
@@ -283,7 +631,7 @@ export default function ParlaysPage() {
               <div className="sticky top-0 bg-[#0A0A0A] px-4 py-4 border-b border-[#27272A] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart size={20} className="text-[#CCFF00]" />
-                  <span className="font-heading font-bold uppercase">Boleto</span>
+                  <span className="font-heading font-bold uppercase">Boleto Manual</span>
                 </div>
                 <button
                   onClick={() => setShowCart(false)}
@@ -309,7 +657,7 @@ export default function ParlaysPage() {
                               <div className="text-sm text-[#CCFF00] mt-1">{sel.selection}</div>
                             </div>
                             <div className="flex items-center gap-2 ml-2">
-                              <span className="font-data font-bold text-white">{sel.odds}</span>
+                              <span className="font-data font-bold text-white">{sel.odds?.toFixed(2)}</span>
                               <button
                                 onClick={() => removeSelection(sel.match_id)}
                                 className="text-[#A1A1AA] hover:text-[#FF2E2E]"
@@ -346,7 +694,7 @@ export default function ParlaysPage() {
                           type="number"
                           value={stake}
                           onChange={(e) => setStake(e.target.value)}
-                          placeholder="100"
+                          placeholder="10000"
                           className="w-full bg-[#0A0A0A] border border-[#27272A] text-white px-3 h-10 text-sm focus:border-[#CCFF00] outline-none font-data"
                         />
                       </div>
