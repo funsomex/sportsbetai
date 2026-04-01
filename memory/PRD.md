@@ -42,26 +42,28 @@ Sistema predictivo de apuestas deportivas con Inteligencia Artificial que utiliz
 - [x] Configuración de número de partidos (2-6)
 - [x] Niveles de riesgo: Bajo, Medio, Alto
 - [x] Filtro por deportes
-- [x] **Filtro por fecha: Hoy, Mañana, Esta semana, Fecha específica**
-- [x] **Análisis detallado de cada selección**:
-  - Razones de la selección
-  - Métricas (probabilidad, valor, confianza)
-  - Comparación de cuotas entre casas
-  - Recomendación de dónde apostar
+- [x] Filtro por fecha: Hoy, Mañana, Esta semana, Fecha específica
+- [x] Análisis detallado de cada selección
 - [x] Cálculo de ganancia potencial
 - [x] Probabilidad de ganar estimada
+
+### ✅ Sistema de Seguimiento de Combinadas y ROI
+- [x] Estado de combinadas: Pendiente, Ganada, Perdida
+- [x] Botones para marcar resultado (Ganó/Perdió)
+- [x] Panel de estadísticas ROI:
+  - Win Rate %
+  - ROI %
+  - Beneficio total
+  - Total apostado
+  - Ganadas/Perdidas/Pendientes
+  - Racha actual
+  - Mejor ganancia / Peor pérdida
+- [x] Filtros: Todas, Pendientes, Ganadas, Perdidas
+- [x] Historial de resultados
 
 ### ✅ Comparador de Cuotas
 - [x] Comparación entre múltiples bookmakers
 - [x] Identificación de mejor cuota por mercado
-
-### ✅ Historial
-- [x] Registro de predicciones
-- [x] Filtros por fecha y resultado
-
-### ✅ Configuración
-- [x] Integración con Telegram para alertas
-- [x] Configuración de notificaciones
 
 ### ✅ Integración con Telegram
 - [x] Alertas de value bets
@@ -73,14 +75,13 @@ Sistema predictivo de apuestas deportivas con Inteligencia Artificial que utiliz
 ## Limitaciones Conocidas
 - The Odds API no proporciona partidos EN VIVO (solo pre-partido)
 - Límite de 500 requests/mes en tier gratuito
-- Para partidos en vivo se necesitaría API-Football (adicional)
 
 ## Próximas Mejoras Potenciales (Backlog)
-- [ ] Integrar API-Football para partidos en vivo y estadísticas
+- [ ] Integrar API-Football para partidos en vivo
 - [ ] Notificaciones push en navegador
-- [ ] Historial de resultados de combinadas
-- [ ] Exportar predicciones a Excel/PDF
-- [ ] Sistema de rachas y estadísticas avanzadas
+- [ ] Exportar estadísticas a Excel/PDF
+- [ ] Gráficos de evolución del ROI mensual
+- [ ] Comparador de rendimiento por deporte
 
 ## Fecha de Última Actualización
 2026-04-01
