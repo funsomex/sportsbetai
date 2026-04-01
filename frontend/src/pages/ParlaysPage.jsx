@@ -201,6 +201,133 @@ export default function ParlaysPage() {
     );
   };
 
+  const SelectionWithAnalysis = ({ sel, idx }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    return (
+      <div className="bg-[#050505] border border-[#27272A] overflow-hidden">
+        {/* Main Selection Info */}
+        <div 
+          className="p-4 cursor-pointer hover:bg-[#0A0A0A] transition-colors"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-5 h-5 bg-[#CCFF00] text-black text-xs font-bold flex items-center justify-center">
+                  {idx + 1}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-[#52525B]">{sel.league}</span>
+                <span className="text-[10px] text-[#00E5FF]">{sel.confidence}% conf.</span>
+              </div>
+              <div className="text-sm text-white">{sel.match}</div>
+              <div className="text-sm text-[#CCFF00] font-medium mt-1">
+                <ArrowRight size={12} className="inline mr-1" />
+                {sel.selection}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="font-data text-xl font-bold text-white">{sel.odds?.toFixed(2)}</div>
+                <div className="text-[10px] text-[#52525B]">{sel.bookmaker}</div>
+              </div>
+              <CaretDown 
+                size={16} 
+                className={`text-[#A1A1AA] transition-transform ${expanded ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* Expanded Analysis */}
+        {expanded && sel.analysis && (
+          <div className="border-t border-[#27272A] p-4 bg-[#0A0A0A] space-y-4">
+            {/* Summary */}
+            <div className="flex items-start gap-2">
+              <Sparkle size={16} className="text-[#CCFF00] mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-white">{sel.analysis.summary}</p>
+            </div>
+            
+            {/* Reasons */}
+            <div className="space-y-2">
+              <h4 className="text-xs uppercase tracking-wider text-[#A1A1AA] font-medium">
+                Por qué esta selección:
+              </h4>
+              <ul className="space-y-1.5">
+                {sel.analysis.reasons?.map((reason, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-[#A1A1AA]">
+                    <CheckCircle size={14} className="text-[#CCFF00] mt-0.5 flex-shrink-0" />
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            {/* Metrics Grid */}
+            {sel.analysis.metrics && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-[#050505] p-2 text-center">
+                  <div className="text-[10px] text-[#52525B] uppercase">Prob. Implícita</div>
+                  <div className="font-data text-lg font-bold text-white">
+                    {sel.analysis.metrics.implied_probability}%
+                  </div>
+                </div>
+                <div className="bg-[#050505] p-2 text-center">
+                  <div className="text-[10px] text-[#52525B] uppercase">Valor</div>
+                  <div className={`font-data text-lg font-bold ${
+                    sel.analysis.metrics.value_pct > 3 ? 'text-[#CCFF00]' : 'text-white'
+                  }`}>
+                    +{sel.analysis.metrics.value_pct}%
+                  </div>
+                </div>
+                <div className="bg-[#050505] p-2 text-center">
+                  <div className="text-[10px] text-[#52525B] uppercase">Casas</div>
+                  <div className="font-data text-lg font-bold text-white">
+                    {sel.analysis.metrics.bookmakers_analyzed}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Odds Comparison */}
+            {sel.analysis.odds_comparison && sel.analysis.odds_comparison.length > 0 && (
+              <div>
+                <h4 className="text-xs uppercase tracking-wider text-[#A1A1AA] font-medium mb-2">
+                  Comparación de cuotas:
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {sel.analysis.odds_comparison.map((comp, i) => (
+                    <div 
+                      key={i}
+                      className={`px-2 py-1 text-xs ${
+                        i === 0 
+                          ? 'bg-[#CCFF00]/20 border border-[#CCFF00]/50 text-[#CCFF00]' 
+                          : 'bg-[#1A1A1A] text-[#A1A1AA]'
+                      }`}
+                    >
+                      {comp.bookmaker}: <span className="font-data font-bold">{comp.odds?.toFixed(2)}</span>
+                      {i === 0 && <span className="ml-1 text-[10px]">MEJOR</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Recommendation */}
+            {sel.analysis.recommendation && (
+              <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-3">
+                <p className="text-xs text-[#00E5FF]">
+                  <Lightning size={12} className="inline mr-1" weight="fill" />
+                  {sel.analysis.recommendation}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const MatchCard = ({ match }) => {
     const bestHome = getBestOdds(match.odds, "home");
     const bestDraw = getBestOdds(match.odds, "draw");
@@ -558,28 +685,10 @@ export default function ParlaysPage() {
                       </div>
                     )}
 
-                    {/* Selections */}
-                    <div className="space-y-2">
+                    {/* Selections with Analysis */}
+                    <div className="space-y-3">
                       {generatedParlay.selections?.map((sel, idx) => (
-                        <div key={idx} className="bg-[#050505] border border-[#27272A] p-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] uppercase tracking-wider text-[#52525B]">{sel.league}</span>
-                                <span className="text-[10px] text-[#00E5FF]">{sel.confidence}% conf.</span>
-                              </div>
-                              <div className="text-sm text-white">{sel.match}</div>
-                              <div className="text-sm text-[#CCFF00] font-medium mt-1">
-                                <ArrowRight size={12} className="inline mr-1" />
-                                {sel.selection}
-                              </div>
-                            </div>
-                            <div className="text-right ml-3">
-                              <div className="font-data text-xl font-bold text-white">{sel.odds?.toFixed(2)}</div>
-                              <div className="text-[10px] text-[#52525B]">{sel.bookmaker}</div>
-                            </div>
-                          </div>
-                        </div>
+                        <SelectionWithAnalysis key={idx} sel={sel} idx={idx} />
                       ))}
                     </div>
 

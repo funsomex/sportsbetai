@@ -923,6 +923,75 @@ async def get_all_odds():
 
 # ============== AUTO PARLAY GENERATOR ==============
 
+def generate_selection_analysis(selection, opponent, market, best_odds, best_bookmaker, 
+                                worst_odds, avg_odds, all_bookmakers, confidence, 
+                                value, league, sport) -> dict:
+    """Generate detailed analysis explaining why this selection was chosen"""
+    
+    # Calculate key metrics
+    implied_prob = round((1 / best_odds) * 100, 1)
+    avg_implied_prob = round((1 / avg_odds) * 100, 1)
+    odds_advantage = round(((best_odds / avg_odds) - 1) * 100, 1)
+    num_bookmakers = len(all_bookmakers)
+    
+    # Determine position type
+    position = "local" if market == "home" else "visitante"
+    
+    # Generate reasoning points
+    reasons = []
+    
+    # Reason 1: Odds advantage
+    if odds_advantage > 2:
+        reasons.append(f"{best_bookmaker} ofrece cuota {best_odds:.2f}, un {odds_advantage}% superior al promedio del mercado ({avg_odds:.2f})")
+    else:
+        reasons.append(f"Cuota competitiva de {best_odds:.2f} en {best_bookmaker}")
+    
+    # Reason 2: Market consensus
+    if confidence > 75:
+        reasons.append(f"Alta consistencia entre {num_bookmakers} casas de apuestas indica mercado estable")
+    elif confidence > 60:
+        reasons.append(f"Consenso moderado entre {num_bookmakers} casas de apuestas")
+    else:
+        reasons.append(f"Variación en cuotas entre casas puede indicar oportunidad de valor")
+    
+    # Reason 3: Value analysis
+    if value > 5:
+        reasons.append(f"Value bet detectado: {value:.1f}% de valor sobre probabilidad implícita del mercado")
+    elif value > 2:
+        reasons.append(f"Ligero valor positivo detectado ({value:.1f}%)")
+    
+    # Reason 4: Position advantage (if home)
+    if market == "home":
+        reasons.append(f"{selection} juega como local, factor que históricamente favorece al equipo de casa")
+    
+    # Generate summary
+    if confidence > 70 and value > 3:
+        summary = f"Selección sólida con buena relación riesgo/recompensa"
+    elif confidence > 60:
+        summary = f"Opción equilibrada para diversificar la combinada"
+    else:
+        summary = f"Selección con potencial de valor, riesgo moderado"
+    
+    # Odds comparison table
+    sorted_bookmakers = sorted(all_bookmakers.items(), key=lambda x: x[1], reverse=True)
+    odds_comparison = [{"bookmaker": b, "odds": o} for b, o in sorted_bookmakers[:5]]
+    
+    return {
+        "summary": summary,
+        "reasons": reasons,
+        "metrics": {
+            "implied_probability": implied_prob,
+            "market_avg_probability": avg_implied_prob,
+            "odds_advantage_pct": odds_advantage,
+            "value_pct": round(value, 1),
+            "confidence_pct": round(confidence, 1),
+            "bookmakers_analyzed": num_bookmakers
+        },
+        "odds_comparison": odds_comparison,
+        "best_bookmaker": best_bookmaker,
+        "recommendation": f"Apostar en {best_bookmaker} para obtener la mejor cuota disponible"
+    }
+
 class AutoParlayRequest(BaseModel):
     num_selections: int = 3  # Number of matches to include
     sports: List[str] = []  # Filter by sports (empty = all)
@@ -981,14 +1050,21 @@ async def generate_auto_parlay(request: AutoParlayRequest):
             for market in ["home", "away"]:
                 best_odds = 0
                 best_bookmaker = ""
+                worst_odds = float('inf')
+                worst_bookmaker = ""
                 all_odds = []
+                all_bookmakers = {}
                 
                 for bookmaker, odds in match["odds"].items():
                     if market in odds and odds[market] > 0:
                         all_odds.append(odds[market])
+                        all_bookmakers[bookmaker] = odds[market]
                         if odds[market] > best_odds:
                             best_odds = odds[market]
                             best_bookmaker = bookmaker
+                        if odds[market] < worst_odds:
+                            worst_odds = odds[market]
+                            worst_bookmaker = bookmaker
                 
                 if best_odds < min_odds or best_odds > max_odds:
                     continue
@@ -1009,9 +1085,26 @@ async def generate_auto_parlay(request: AutoParlayRequest):
                 value = ((avg_implied / best_implied) - 1) * 100
                 
                 selection_name = match["home_team"] if market == "home" else match["away_team"]
+                opponent_name = match["away_team"] if market == "home" else match["home_team"]
                 
                 # Score for ranking (combines value, confidence, and odds attractiveness)
                 score = (value * 0.4) + (confidence * 0.4) + ((best_odds - 1) * 10 * 0.2)
+                
+                # Generate detailed analysis
+                analysis = generate_selection_analysis(
+                    selection=selection_name,
+                    opponent=opponent_name,
+                    market=market,
+                    best_odds=best_odds,
+                    best_bookmaker=best_bookmaker,
+                    worst_odds=worst_odds,
+                    avg_odds=avg_odds,
+                    all_bookmakers=all_bookmakers,
+                    confidence=confidence,
+                    value=value,
+                    league=match["league"],
+                    sport=match["sport"]
+                )
                 
                 candidates.append({
                     "match_id": match["id"],
@@ -1027,7 +1120,8 @@ async def generate_auto_parlay(request: AutoParlayRequest):
                     "bookmaker": best_bookmaker,
                     "confidence": round(confidence, 1),
                     "value": round(value, 1),
-                    "score": round(score, 2)
+                    "score": round(score, 2),
+                    "analysis": analysis
                 })
         
         if len(candidates) < request.num_selections:
