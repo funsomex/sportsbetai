@@ -1,78 +1,86 @@
-# SportsBetAI - Sistema Predictivo de Apuestas Deportivas con IA
+# SportsBetAI - Product Requirements Document
 
-## Problema Original
-Crear un sistema automatizado de análisis predictivo para apuestas deportivas que utilice datos estadísticos, machine learning y análisis de cuotas para identificar apuestas con valor esperado positivo (value bets). El sistema debe analizar múltiples deportes y generar alertas automáticas en Telegram.
+## Descripción del Proyecto
+Sistema predictivo de apuestas deportivas con Inteligencia Artificial que utiliza datos estadísticos reales, machine learning y análisis de cuotas para identificar apuestas con valor esperado positivo (value bets).
 
-## Arquitectura
-- **Backend**: FastAPI con Python
-- **Frontend**: React con Tailwind CSS
-- **Base de datos**: MongoDB
-- **IA**: Emergent LLM Key (GPT-5.2)
-- **Notificaciones**: Telegram Bot API
+## URLs de Producción
+- **Frontend**: https://mellifluous-sherbet-50a651.netlify.app
+- **Backend**: https://sportsbetai.onrender.com
 
-## User Personas
-1. **Apostador Analítico**: Usuario que busca ventaja matemática mediante análisis de value bets
-2. **Apostador Casual**: Usuario que quiere combinar selecciones de forma fácil
-3. **Seguidor de Alertas**: Usuario que recibe notificaciones de oportunidades vía Telegram
+## Stack Tecnológico
+- **Frontend**: React.js + Tailwind CSS + Shadcn/UI
+- **Backend**: FastAPI (Python)
+- **Base de Datos**: MongoDB Atlas
+- **APIs Externas**: The Odds API (cuotas reales)
+- **Hosting**: Netlify (Frontend) + Render (Backend)
 
-## Core Requirements (Estático)
-- [x] Sistema de autenticación JWT
-- [x] Dashboard con estadísticas de rendimiento
-- [x] Listado de partidos por deporte (7 deportes)
-- [x] Detector de Value Bets con cálculo de probabilidades
-- [x] Comparador de cuotas entre 5 casas de apuestas
-- [x] Generador de combinadas (1-6 selecciones)
-- [x] Historial de predicciones con ROI
-- [x] Integración Telegram para alertas
+## Funcionalidades Implementadas
 
-## What's Been Implemented (14 Mar 2026)
-### Backend
-- Auth: Register, Login, JWT tokens
-- Matches: Listado con filtros por deporte/estado
-- Value Bets: Detector con cálculo de valor y confianza
-- Parlays: CRUD de combinadas
-- Predictions: Guardado de predicciones
-- Stats: Estadísticas de usuario (win rate, ROI)
-- Telegram: Configuración y envío de alertas
-- AI Analysis: Análisis de partidos con GPT-5.2
+### ✅ Autenticación
+- [x] Registro de usuarios
+- [x] Login con JWT
+- [x] Recuperación de contraseña (con código por Telegram)
 
-### Frontend
-- Login/Register con diseño oscuro
-- Dashboard con gráficos de rendimiento
-- Partidos con filtros y cuotas 1X2
-- Value Bets con tarjetas detalladas
-- Combinadas con carrito estilo shopping
-- Comparador de cuotas por partido
-- Historial con estadísticas
-- Configuración de Telegram
+### ✅ Dashboard
+- [x] Métricas: Predicciones, Win Rate, ROI, Profit
+- [x] Gráfico de rendimiento semanal
+- [x] Próximos partidos con cuotas reales
+- [x] Top Value Bets
 
-### Design System
-- Tema: "The Performance Pro" (estilo Bloomberg Terminal)
-- Paleta: Deep Obsidian (#050505) + Electric Lime (#CCFF00)
-- Tipografías: Barlow Condensed, JetBrains Mono, Manrope
+### ✅ Partidos (Datos Reales - The Odds API)
+- [x] Lista de partidos por deporte
+- [x] Cuotas de 27+ casas de apuestas
+- [x] Deportes: Fútbol, Baloncesto, Béisbol, Hockey, MMA, Tenis
 
-## Datos MOCK (pendiente APIs reales)
-- Estadísticas deportivas simuladas
-- Cuotas generadas aleatoriamente
-- Probabilidades calculadas con variación
+### ✅ Value Bets
+- [x] Detección automática de value bets
+- [x] Cálculo de probabilidad real vs implícita
+- [x] Nivel de confianza
+- [x] Mejor casa de apuestas para cada selección
 
-## Backlog Priorizado
-### P0 (Crítico)
-- [ ] Integrar API-Football para datos reales de fútbol
-- [ ] Integrar The Odds API para cuotas reales
+### ✅ Generador Automático de Combinadas (IA)
+- [x] Configuración de número de partidos (2-6)
+- [x] Niveles de riesgo: Bajo, Medio, Alto
+- [x] Filtro por deportes
+- [x] **Filtro por fecha: Hoy, Mañana, Esta semana, Fecha específica**
+- [x] **Análisis detallado de cada selección**:
+  - Razones de la selección
+  - Métricas (probabilidad, valor, confianza)
+  - Comparación de cuotas entre casas
+  - Recomendación de dónde apostar
+- [x] Cálculo de ganancia potencial
+- [x] Probabilidad de ganar estimada
 
-### P1 (Importante)
-- [ ] Modelo ML para predicciones más precisas
-- [ ] Notificaciones push automáticas de value bets
-- [ ] Histórico de movimientos de cuotas
+### ✅ Comparador de Cuotas
+- [x] Comparación entre múltiples bookmakers
+- [x] Identificación de mejor cuota por mercado
 
-### P2 (Mejoras)
-- [ ] Dashboard móvil optimizado
-- [ ] Exportar predicciones a CSV
-- [ ] Gráficos de tendencias por deporte
+### ✅ Historial
+- [x] Registro de predicciones
+- [x] Filtros por fecha y resultado
 
-## Próximos Pasos
-1. Obtener API keys reales (API-Football, The Odds API)
-2. Implementar scraping/API de cuotas en tiempo real
-3. Entrenar modelo ML con datos históricos
-4. Automatizar alertas de Telegram para value bets detectados
+### ✅ Configuración
+- [x] Integración con Telegram para alertas
+- [x] Configuración de notificaciones
+
+### ✅ Integración con Telegram
+- [x] Alertas de value bets
+- [x] Códigos de recuperación de contraseña
+
+## APIs Integradas
+- **The Odds API**: Cuotas reales de 27+ casas de apuestas (500 req/mes gratis)
+
+## Limitaciones Conocidas
+- The Odds API no proporciona partidos EN VIVO (solo pre-partido)
+- Límite de 500 requests/mes en tier gratuito
+- Para partidos en vivo se necesitaría API-Football (adicional)
+
+## Próximas Mejoras Potenciales (Backlog)
+- [ ] Integrar API-Football para partidos en vivo y estadísticas
+- [ ] Notificaciones push en navegador
+- [ ] Historial de resultados de combinadas
+- [ ] Exportar predicciones a Excel/PDF
+- [ ] Sistema de rachas y estadísticas avanzadas
+
+## Fecha de Última Actualización
+2026-04-01
