@@ -32,6 +32,38 @@ JWT_EXPIRATION_HOURS = 24
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# The Odds API Config
+THE_ODDS_API_KEY = os.environ.get('THE_ODDS_API_KEY')
+THE_ODDS_API_BASE = "https://api.the-odds-api.com/v4"
+
+# Sports mapping for The Odds API
+ODDS_API_SPORTS = {
+    "football": ["soccer_spain_la_liga", "soccer_epl", "soccer_italy_serie_a", "soccer_germany_bundesliga", "soccer_france_ligue_one", "soccer_uefa_champs_league"],
+    "basketball": ["basketball_nba", "basketball_euroleague"],
+    "tennis": ["tennis_atp_aus_open", "tennis_atp_french_open", "tennis_atp_wimbledon", "tennis_atp_us_open"],
+    "baseball": ["baseball_mlb"],
+    "hockey": ["icehockey_nhl"],
+    "mma": ["mma_mixed_martial_arts"],
+    "esports": ["esports_lol", "esports_csgo", "esports_dota2"]
+}
+
+SPORT_DISPLAY_NAMES = {
+    "soccer_spain_la_liga": "La Liga",
+    "soccer_epl": "Premier League", 
+    "soccer_italy_serie_a": "Serie A",
+    "soccer_germany_bundesliga": "Bundesliga",
+    "soccer_france_ligue_one": "Ligue 1",
+    "soccer_uefa_champs_league": "Champions League",
+    "basketball_nba": "NBA",
+    "basketball_euroleague": "EuroLeague",
+    "baseball_mlb": "MLB",
+    "icehockey_nhl": "NHL",
+    "mma_mixed_martial_arts": "MMA/UFC",
+    "esports_lol": "League of Legends",
+    "esports_csgo": "CS2",
+    "esports_dota2": "Dota 2"
+}
+
 # Create the main app
 app = FastAPI(title="SportsBetAI", description="Sistema Predictivo de Apuestas Deportivas con IA")
 
@@ -170,6 +202,191 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+# ============== REAL DATA FROM THE ODDS API ==============
+
+async def fetch_real_sports():
+    """Fetch available sports from The Odds API"""
+    if not THE_ODDS_API_KEY:
+        return []
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{THE_ODDS_API_BASE}/sports",
+                params={"apiKey": THE_ODDS_API_KEY}
+            )
+            if response.status_code == 200:
+                return response.json()
+    except Exception as e:
+        logger.error(f"Error fetching sports: {e}")
+    return []
+
+async def fetch_real_odds(sport_key: str, regions: str = "eu,us", markets: str = "h2h"):
+    """Fetch real odds from The Odds API"""
+    if not THE_ODDS_API_KEY:
+        return []
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{THE_ODDS_API_BASE}/sports/{sport_key}/odds",
+                params={
+                    "apiKey": THE_ODDS_API_KEY,
+                    "regions": regions,
+                    "markets": markets,
+                    "oddsFormat": "decimal"
+                },
+                timeout=30.0
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"Odds API returned {response.status_code} for {sport_key}")
+    except Exception as e:
+        logger.error(f"Error fetching odds for {sport_key}: {e}")
+    return []
+
+async def get_all_real_matches(sport_filter: str = None) -> List[Dict]:
+    """Get all real matches with odds from multiple sports"""
+    all_matches = []
+    
+    # Determine which sports to fetch
+    if sport_filter and sport_filter in ODDS_API_SPORTS:
+        sports_to_fetch = ODDS_API_SPORTS[sport_filter]
+    else:
+        # Fetch main sports
+        sports_to_fetch = [
+            "soccer_spain_la_liga", "soccer_epl", "soccer_italy_serie_a",
+            "basketball_nba", "baseball_mlb", "icehockey_nhl", "mma_mixed_martial_arts"
+        ]
+    
+    for sport_key in sports_to_fetch:
+        try:
+            odds_data = await fetch_real_odds(sport_key)
+            for event in odds_data:
+                # Convert to our match format
+                odds_by_bookmaker = {}
+                for bookmaker in event.get("bookmakers", []):
+                    bookmaker_name = bookmaker.get("title", bookmaker.get("key"))
+                    markets = {}
+                    for market in bookmaker.get("markets", []):
+                        if market.get("key") == "h2h":
+                            for outcome in market.get("outcomes", []):
+                                name = outcome.get("name")
+                                price = outcome.get("price")
+                                if name == event.get("home_team"):
+                                    markets["home"] = price
+                                elif name == event.get("away_team"):
+                                    markets["away"] = price
+                                elif name.lower() == "draw":
+                                    markets["draw"] = price
+                    if markets:
+                        odds_by_bookmaker[bookmaker_name] = markets
+                
+                # Determine sport type from sport_key
+                sport_type = "football"
+                if "basketball" in sport_key:
+                    sport_type = "basketball"
+                elif "baseball" in sport_key:
+                    sport_type = "baseball"
+                elif "hockey" in sport_key or "icehockey" in sport_key:
+                    sport_type = "hockey"
+                elif "mma" in sport_key:
+                    sport_type = "mma"
+                elif "tennis" in sport_key:
+                    sport_type = "tennis"
+                elif "esports" in sport_key:
+                    sport_type = "esports"
+                
+                match = {
+                    "id": event.get("id"),
+                    "sport": sport_type,
+                    "league": SPORT_DISPLAY_NAMES.get(sport_key, event.get("sport_title", sport_key)),
+                    "home_team": event.get("home_team"),
+                    "away_team": event.get("away_team"),
+                    "start_time": event.get("commence_time"),
+                    "status": "upcoming",  # The Odds API mainly provides upcoming matches
+                    "home_score": None,
+                    "away_score": None,
+                    "odds": odds_by_bookmaker,
+                    "stats": None,
+                    "is_real_data": True
+                }
+                all_matches.append(match)
+        except Exception as e:
+            logger.error(f"Error processing {sport_key}: {e}")
+            continue
+    
+    # Sort by start time
+    all_matches.sort(key=lambda x: x.get("start_time", ""))
+    return all_matches
+
+def calculate_real_value_bets(matches: List[Dict]) -> List[Dict]:
+    """Calculate value bets from real odds data"""
+    value_bets = []
+    
+    for match in matches:
+        if not match.get("odds"):
+            continue
+        
+        # Find best odds across all bookmakers for each outcome
+        best_odds = {"home": 0, "draw": 0, "away": 0}
+        best_bookmaker = {"home": "", "draw": "", "away": ""}
+        all_odds = {"home": [], "draw": [], "away": []}
+        
+        for bookmaker, odds in match["odds"].items():
+            for market in ["home", "draw", "away"]:
+                if market in odds:
+                    all_odds[market].append(odds[market])
+                    if odds[market] > best_odds[market]:
+                        best_odds[market] = odds[market]
+                        best_bookmaker[market] = bookmaker
+        
+        # Calculate implied probabilities and find value
+        for market in ["home", "draw", "away"]:
+            if best_odds[market] > 0 and len(all_odds[market]) >= 2:
+                # Average implied probability from all bookmakers
+                avg_implied_prob = sum(1/o for o in all_odds[market]) / len(all_odds[market])
+                
+                # Best odds implied probability
+                best_implied_prob = 1 / best_odds[market]
+                
+                # Value = difference between average market view and best available odds
+                # If best odds offer lower implied prob than market average, there's value
+                value_percentage = ((avg_implied_prob / best_implied_prob) - 1) * 100
+                
+                # Also consider odds deviation for confidence
+                odds_std = (max(all_odds[market]) - min(all_odds[market])) / min(all_odds[market]) * 100
+                confidence = max(50, min(95, 85 - odds_std))  # Higher deviation = lower confidence
+                
+                if value_percentage > 2:  # Minimum 2% value
+                    selection = match["home_team"] if market == "home" else (match["away_team"] if market == "away" else "Empate")
+                    
+                    value_bet = {
+                        "id": str(uuid.uuid4()),
+                        "match_id": match["id"],
+                        "match": {
+                            "home_team": match["home_team"],
+                            "away_team": match["away_team"],
+                            "league": match["league"],
+                            "sport": match["sport"],
+                            "start_time": match["start_time"]
+                        },
+                        "market": market,
+                        "selection": selection,
+                        "bookmaker": best_bookmaker[market],
+                        "odds": best_odds[market],
+                        "true_probability": round(avg_implied_prob * 100, 1),
+                        "implied_probability": round(best_implied_prob * 100, 1),
+                        "value_percentage": round(value_percentage, 1),
+                        "confidence": round(confidence, 1),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "is_real_data": True
+                    }
+                    value_bets.append(value_bet)
+    
+    # Sort by value percentage
+    value_bets.sort(key=lambda x: x["value_percentage"], reverse=True)
+    return value_bets[:20]
 
 # ============== MOCK DATA GENERATORS ==============
 
@@ -565,25 +782,42 @@ async def send_telegram_alert(value_bet: dict, current_user: dict = Depends(get_
 
 @api_router.get("/matches")
 async def get_matches(sport: str = None, status: str = None, limit: int = 20):
+    """Get matches - uses real data from The Odds API if available"""
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches(sport)
+            if status:
+                matches = [m for m in matches if m["status"] == status]
+            return {"matches": matches[:limit], "total": len(matches), "source": "real"}
+        except Exception as e:
+            logger.error(f"Error fetching real matches: {e}")
+    
+    # Fallback to mock data
     matches = generate_mock_matches(sport, limit)
     if status:
         matches = [m for m in matches if m["status"] == status]
-    return {"matches": matches, "total": len(matches)}
+    return {"matches": matches, "total": len(matches), "source": "mock"}
 
 @api_router.get("/matches/{match_id}")
 async def get_match(match_id: str):
-    # In real app, fetch from DB. Here we generate a mock
-    matches = generate_mock_matches()
-    for m in matches:
-        if m["id"] == match_id:
-            return m
-    # Generate a random one for demo
+    """Get single match by ID"""
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches()
+            for m in matches:
+                if m["id"] == match_id:
+                    return m
+        except Exception as e:
+            logger.error(f"Error fetching match: {e}")
+    
+    # Fallback to mock
     match = generate_mock_matches(count=1)[0]
     match["id"] = match_id
     return match
 
 @api_router.get("/matches/live")
 async def get_live_matches():
+    """Get live matches"""
     matches = generate_mock_matches(count=30)
     live = [m for m in matches if m["status"] == "live"]
     return {"matches": live, "total": len(live)}
@@ -591,24 +825,61 @@ async def get_live_matches():
 # ============== VALUE BETS ENDPOINTS ==============
 
 @api_router.get("/value-bets")
-async def get_value_bets(sport: str = None, min_value: float = 3.0):
+async def get_value_bets(sport: str = None, min_value: float = 2.0):
+    """Get value bets - uses real odds data if available"""
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches(sport)
+            value_bets = calculate_real_value_bets(matches)
+            filtered = [vb for vb in value_bets if vb["value_percentage"] >= min_value]
+            return {"value_bets": filtered, "total": len(filtered), "source": "real"}
+        except Exception as e:
+            logger.error(f"Error calculating real value bets: {e}")
+    
+    # Fallback to mock
     matches = generate_mock_matches(sport, count=30)
     value_bets = calculate_value_bets(matches)
     filtered = [vb for vb in value_bets if vb["value_percentage"] >= min_value]
-    return {"value_bets": filtered, "total": len(filtered)}
+    return {"value_bets": filtered, "total": len(filtered), "source": "mock"}
 
 @api_router.get("/value-bets/top")
 async def get_top_value_bets(limit: int = 5):
+    """Get top value bets"""
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches()
+            value_bets = calculate_real_value_bets(matches)
+            return {"value_bets": value_bets[:limit], "source": "real"}
+        except Exception as e:
+            logger.error(f"Error getting top value bets: {e}")
+    
+    # Fallback to mock
     matches = generate_mock_matches(count=50)
     value_bets = calculate_value_bets(matches)
-    return {"value_bets": value_bets[:limit]}
+    return {"value_bets": value_bets[:limit], "source": "mock"}
 
 # ============== ODDS COMPARISON ==============
 
 @api_router.get("/odds/compare/{match_id}")
 async def compare_odds(match_id: str):
-    match = generate_mock_matches(count=1)[0]
-    match["id"] = match_id
+    """Compare odds across bookmakers for a specific match"""
+    match = None
+    
+    # Try to find real match first
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches()
+            for m in matches:
+                if m["id"] == match_id:
+                    match = m
+                    break
+        except Exception as e:
+            logger.error(f"Error finding match for comparison: {e}")
+    
+    # Fallback to mock
+    if not match:
+        match = generate_mock_matches(count=1)[0]
+        match["id"] = match_id
     
     comparison = {
         "match": {
@@ -623,19 +894,32 @@ async def compare_odds(match_id: str):
             "home": {"bookmaker": "", "odds": 0},
             "draw": {"bookmaker": "", "odds": 0},
             "away": {"bookmaker": "", "odds": 0}
-        }
+        },
+        "is_real_data": match.get("is_real_data", False)
     }
     
     for market in ["home", "draw", "away"]:
         best_odds = 0
         best_bookmaker = ""
         for bookmaker, odds in match["odds"].items():
-            if odds[market] > best_odds:
+            if market in odds and odds[market] > best_odds:
                 best_odds = odds[market]
                 best_bookmaker = bookmaker
         comparison["best_odds"][market] = {"bookmaker": best_bookmaker, "odds": best_odds}
     
     return comparison
+
+@api_router.get("/odds/all")
+async def get_all_odds():
+    """Get all available odds from real API"""
+    if THE_ODDS_API_KEY:
+        try:
+            matches = await get_all_real_matches()
+            return {"matches": matches, "total": len(matches), "source": "real"}
+        except Exception as e:
+            logger.error(f"Error fetching all odds: {e}")
+    
+    return {"matches": [], "total": 0, "source": "none", "message": "API key not configured"}
 
 # ============== PARLAYS / COMBINADAS ==============
 
