@@ -61,7 +61,7 @@ export default function DashboardPage() {
       const [statsRes, valueBetsRes, matchesRes] = await Promise.all([
         api.get("/stats"),
         api.get("/value-bets/top?limit=5"),
-        api.get("/matches?status=live&limit=5")
+        api.get("/matches?limit=5")  // Changed: Get upcoming matches instead of live
       ]);
       setStats(statsRes.data);
       setValueBets(valueBetsRes.data.value_bets || []);
@@ -150,6 +150,75 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+
+  const UpcomingMatchCard = ({ match }) => {
+    // Format date
+    const formatDate = (dateStr) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      const day = date.getDate();
+      const month = date.toLocaleString('es', { month: 'short' });
+      const time = date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+      return { day, month, time };
+    };
+    
+    const dateInfo = formatDate(match.start_time);
+    
+    // Get best odds
+    const getBestOdds = () => {
+      if (!match.odds) return { home: "-", draw: "-", away: "-" };
+      let bestHome = 0, bestDraw = 0, bestAway = 0;
+      Object.values(match.odds).forEach(odds => {
+        if (odds.home && odds.home > bestHome) bestHome = odds.home;
+        if (odds.draw && odds.draw > bestDraw) bestDraw = odds.draw;
+        if (odds.away && odds.away > bestAway) bestAway = odds.away;
+      });
+      return { 
+        home: bestHome > 0 ? bestHome.toFixed(2) : "-", 
+        draw: bestDraw > 0 ? bestDraw.toFixed(2) : "-", 
+        away: bestAway > 0 ? bestAway.toFixed(2) : "-" 
+      };
+    };
+    
+    const bestOdds = getBestOdds();
+    
+    return (
+      <div className="p-4 hover:bg-[#0F0F0F] transition-colors">
+        <div className="flex items-center justify-between mb-2">
+          <span className="badge-league">{match.league}</span>
+          {match.is_real_data && (
+            <span className="text-[8px] uppercase tracking-wider text-[#00E5FF] bg-[#00E5FF]/10 px-2 py-0.5">
+              Datos reales
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1">
+            <div className="text-sm text-white mb-1">{match.home_team}</div>
+            <div className="text-sm text-[#A1A1AA]">{match.away_team}</div>
+          </div>
+          <div className="text-right text-xs text-[#A1A1AA]">
+            <div className="text-[#CCFF00] font-medium">{dateInfo.day} {dateInfo.month}</div>
+            <div>{dateInfo.time}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-[#1A1A1A] py-1 px-2">
+            <div className="text-[10px] text-[#A1A1AA]">1</div>
+            <div className="text-sm font-bold text-white">{bestOdds.home}</div>
+          </div>
+          <div className="bg-[#1A1A1A] py-1 px-2">
+            <div className="text-[10px] text-[#A1A1AA]">X</div>
+            <div className="text-sm font-bold text-white">{bestOdds.draw}</div>
+          </div>
+          <div className="bg-[#1A1A1A] py-1 px-2">
+            <div className="text-[10px] text-[#A1A1AA]">2</div>
+            <div className="text-sm font-bold text-white">{bestOdds.away}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -263,11 +332,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Live Matches */}
+          {/* Upcoming Matches */}
           <div className="bg-[#0A0A0A] border border-[#27272A]">
             <div className="px-4 py-3 border-b border-[#27272A] flex justify-between items-center">
               <h2 className="font-heading text-sm font-bold uppercase tracking-wider text-white">
-                En Vivo
+                Próximos Partidos
               </h2>
               <Link to="/matches" className="text-xs text-[#A1A1AA] hover:text-[#CCFF00] flex items-center gap-1">
                 Ver todos <ArrowRight size={12} />
@@ -276,11 +345,11 @@ export default function DashboardPage() {
             <div className="divide-y divide-[#27272A]">
               {matches.length > 0 ? (
                 matches.slice(0, 3).map((match) => (
-                  <LiveMatchCard key={match.id} match={match} />
+                  <UpcomingMatchCard key={match.id} match={match} />
                 ))
               ) : (
                 <div className="p-8 text-center text-[#A1A1AA] text-sm">
-                  No hay partidos en vivo
+                  No hay partidos próximos disponibles
                 </div>
               )}
             </div>
