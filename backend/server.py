@@ -1000,6 +1000,7 @@ class AutoParlayRequest(BaseModel):
     target_total_odds: float = None  # Target combined odds (optional)
     risk_level: str = "medium"  # low, medium, high
     stake: float = None  # Amount to bet
+    date_filter: str = "all"  # "today", "tomorrow", "week", "all", or specific date "YYYY-MM-DD"
 
 @api_router.post("/parlays/generate")
 async def generate_auto_parlay(request: AutoParlayRequest):
@@ -1011,6 +1012,40 @@ async def generate_auto_parlay(request: AutoParlayRequest):
         matches = await get_all_real_matches()
         if not matches:
             raise HTTPException(status_code=404, detail="No hay partidos disponibles")
+        
+        # Filter by date
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        tomorrow_end = today_start + timedelta(days=2)
+        week_end = today_start + timedelta(days=7)
+        
+        if request.date_filter == "today":
+            matches = [m for m in matches if m.get("start_time") and 
+                      today_start <= datetime.fromisoformat(m["start_time"].replace("Z", "+00:00")) < today_end]
+        elif request.date_filter == "tomorrow":
+            matches = [m for m in matches if m.get("start_time") and 
+                      today_end <= datetime.fromisoformat(m["start_time"].replace("Z", "+00:00")) < tomorrow_end]
+        elif request.date_filter == "week":
+            matches = [m for m in matches if m.get("start_time") and 
+                      today_start <= datetime.fromisoformat(m["start_time"].replace("Z", "+00:00")) < week_end]
+        elif request.date_filter and request.date_filter not in ["all", ""]:
+            # Specific date in YYYY-MM-DD format
+            try:
+                target_date = datetime.strptime(request.date_filter, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                target_end = target_date + timedelta(days=1)
+                matches = [m for m in matches if m.get("start_time") and 
+                          target_date <= datetime.fromisoformat(m["start_time"].replace("Z", "+00:00")) < target_end]
+            except ValueError:
+                pass  # Invalid date format, don't filter
+        
+        if not matches:
+            date_msg = {
+                "today": "hoy",
+                "tomorrow": "mañana",
+                "week": "esta semana"
+            }.get(request.date_filter, request.date_filter)
+            raise HTTPException(status_code=404, detail=f"No hay partidos disponibles para {date_msg}")
         
         # Filter by sports if specified
         if request.sports:

@@ -14,7 +14,9 @@ import {
   Target,
   Fire,
   ArrowRight,
-  Sparkle
+  Sparkle,
+  Calendar,
+  CalendarBlank
 } from "@phosphor-icons/react";
 
 export default function ParlaysPage() {
@@ -34,8 +36,10 @@ export default function ParlaysPage() {
     num_selections: 3,
     risk_level: "medium",
     sports: [],
-    stake: 10000
+    stake: 10000,
+    date_filter: "all"
   });
+  const [customDate, setCustomDate] = useState("");
 
   const sportOptions = [
     { value: "football", label: "Fútbol" },
@@ -45,6 +49,22 @@ export default function ParlaysPage() {
     { value: "mma", label: "MMA/UFC" },
     { value: "tennis", label: "Tenis" }
   ];
+
+  const dateOptions = [
+    { value: "today", label: "Hoy", icon: Calendar },
+    { value: "tomorrow", label: "Mañana", icon: CalendarBlank },
+    { value: "week", label: "Esta semana", icon: CalendarBlank },
+    { value: "all", label: "Todos", icon: CalendarBlank }
+  ];
+
+  // Get today and tomorrow dates for display
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const formatDateLabel = (date) => {
+    return date.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+  };
 
   useEffect(() => {
     loadData();
@@ -69,7 +89,12 @@ export default function ParlaysPage() {
   const generateAutoParlay = async () => {
     setGeneratorLoading(true);
     try {
-      const response = await api.post("/parlays/generate", genConfig);
+      // Prepare config with date filter
+      const configToSend = {
+        ...genConfig,
+        date_filter: genConfig.date_filter === "custom" ? customDate : genConfig.date_filter
+      };
+      const response = await api.post("/parlays/generate", configToSend);
       setGeneratedParlay(response.data);
       toast.success("¡Combinada generada con éxito!");
     } catch (error) {
@@ -614,6 +639,86 @@ export default function ParlaysPage() {
                           ))}
                         </div>
                         <p className="text-[10px] text-[#52525B] mt-1">Deja vacío para incluir todos</p>
+                      </div>
+
+                      {/* Date Filter */}
+                      <div>
+                        <label className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-2 block flex items-center gap-2">
+                          <Calendar size={14} />
+                          Fecha de Partidos
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <button
+                            onClick={() => setGenConfig({...genConfig, date_filter: "today"})}
+                            className={`p-3 border transition-colors text-left ${
+                              genConfig.date_filter === "today"
+                                ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                            }`}
+                          >
+                            <div className="text-sm font-medium text-white">Hoy</div>
+                            <div className="text-[10px] text-[#52525B]">{formatDateLabel(today)}</div>
+                          </button>
+                          <button
+                            onClick={() => setGenConfig({...genConfig, date_filter: "tomorrow"})}
+                            className={`p-3 border transition-colors text-left ${
+                              genConfig.date_filter === "tomorrow"
+                                ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                            }`}
+                          >
+                            <div className="text-sm font-medium text-white">Mañana</div>
+                            <div className="text-[10px] text-[#52525B]">{formatDateLabel(tomorrow)}</div>
+                          </button>
+                          <button
+                            onClick={() => setGenConfig({...genConfig, date_filter: "week"})}
+                            className={`p-3 border transition-colors text-left ${
+                              genConfig.date_filter === "week"
+                                ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                            }`}
+                          >
+                            <div className="text-sm font-medium text-white">Esta semana</div>
+                            <div className="text-[10px] text-[#52525B]">Próximos 7 días</div>
+                          </button>
+                          <button
+                            onClick={() => setGenConfig({...genConfig, date_filter: "all"})}
+                            className={`p-3 border transition-colors text-left ${
+                              genConfig.date_filter === "all"
+                                ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                            }`}
+                          >
+                            <div className="text-sm font-medium text-white">Todos</div>
+                            <div className="text-[10px] text-[#52525B]">Sin filtro de fecha</div>
+                          </button>
+                        </div>
+                        
+                        {/* Custom date picker */}
+                        <div className="mt-3">
+                          <button
+                            onClick={() => setGenConfig({...genConfig, date_filter: "custom"})}
+                            className={`w-full p-2 border transition-colors text-left ${
+                              genConfig.date_filter === "custom"
+                                ? "bg-[#CCFF00]/10 border-[#CCFF00]"
+                                : "bg-[#050505] border-[#27272A] hover:border-[#CCFF00]/50"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Elegir fecha específica</span>
+                              <CalendarBlank size={16} className="text-[#A1A1AA]" />
+                            </div>
+                          </button>
+                          {genConfig.date_filter === "custom" && (
+                            <input
+                              type="date"
+                              value={customDate}
+                              onChange={(e) => setCustomDate(e.target.value)}
+                              min={today.toISOString().split('T')[0]}
+                              className="w-full mt-2 bg-[#050505] border border-[#CCFF00] text-white px-4 h-12 focus:outline-none"
+                            />
+                          )}
+                        </div>
                       </div>
 
                       {/* Stake */}
