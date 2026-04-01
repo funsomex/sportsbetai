@@ -1278,6 +1278,9 @@ async def get_parlay_suggestions():
 
 # ============== PARLAYS / COMBINADAS ==============
 
+class ParlayResultUpdate(BaseModel):
+    result: str  # "won" or "lost"
+
 @api_router.post("/parlays")
 async def create_parlay(parlay_data: ParlayCreate, current_user: dict = Depends(get_current_user)):
     if len(parlay_data.selections) > 6:
@@ -1295,7 +1298,9 @@ async def create_parlay(parlay_data: ParlayCreate, current_user: dict = Depends(
         "total_odds": round(total_odds, 2),
         "stake": parlay_data.stake,
         "potential_profit": round(parlay_data.stake * total_odds, 2) if parlay_data.stake else None,
-        "status": "active",
+        "status": "pending",  # pending, won, lost
+        "actual_profit": None,
+        "result_date": None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -1305,10 +1310,159 @@ async def create_parlay(parlay_data: ParlayCreate, current_user: dict = Depends(
     return parlay_response
 
 @api_router.get("/parlays")
-async def get_parlays(skip: int = 0, limit: int = 20, current_user: dict = Depends(get_current_user)):
-    parlays = await db.parlays.find({"user_id": current_user["id"]}, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
-    total = await db.parlays.count_documents({"user_id": current_user["id"]})
+async def get_parlays(skip: int = 0, limit: int = 20, status: str = None, current_user: dict = Depends(get_current_user)):
+    query = {"user_id": current_user["id"]}
+    if status and status in ["pending", "won", "lost"]:
+        query["status"] = status
+    
+    parlays = await db.parlays.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.parlays.count_documents(query)
     return {"parlays": parlays, "total": total, "skip": skip, "limit": limit}
+
+@api_router.put("/parlays/{parlay_id}/result")
+async def update_parlay_result(parlay_id: str, result_data: ParlayResultUpdate, current_user: dict = Depends(get_current_user)):
+    """Marcar una combinada como ganada o perdida"""
+    if result_data.result not in ["won", "lost"]:
+        raise HTTPException(status_code=400, detail="Resultado debe ser 'won' o 'lost'")
+    
+    # Find the parlay
+    parlay = await db.parlays.find_one({"id": parlay_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not parlay:
+        raise HTTPException(status_code=404, detail="Combinada no encontrada")
+    
+    # Calculate actual profit
+    stake = parlay.get("stake", 0) or 0
+    total_odds = parlay.get("total_odds", 1)
+    
+    if result_data.result == "won":
+        actual_profit = round(stake * total_odds - stake, 2)  # Net profit
+    else:
+        actual_profit = -stake  # Lost the stake
+    
+    # Update the parlay
+    await db.parlays.update_one(
+        {"id": parlay_id, "user_id": current_user["id"]},
+        {"$set": {
+            "status": result_data.result,
+            "actual_profit": actual_profit,
+            "result_date": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "message": f"Combinada marcada como {'ganada' if result_data.result == 'won' else 'perdida'}",
+        "actual_profit": actual_profit
+    }
+
+@api_router.get("/parlays/stats")
+async def get_parlay_stats(current_user: dict = Depends(get_current_user)):
+    """Obtener estadísticas de ROI y rendimiento de combinadas"""
+    
+    # Get all user parlays
+    parlays = await db.parlays.find({"user_id": current_user["id"]}, {"_id": 0}).to_list(1000)
+    
+    if not parlays:
+        return {
+            "total_parlays": 0,
+            "pending": 0,
+            "won": 0,
+            "lost": 0,
+            "win_rate": 0,
+            "total_staked": 0,
+            "total_profit": 0,
+            "roi": 0,
+            "best_win": None,
+            "worst_loss": None,
+            "current_streak": {"type": None, "count": 0},
+            "avg_odds": 0
+        }
+    
+    # Calculate stats
+    total = len(parlays)
+    pending = sum(1 for p in parlays if p.get("status") == "pending" or p.get("status") == "active")
+    won = sum(1 for p in parlays if p.get("status") == "won")
+    lost = sum(1 for p in parlays if p.get("status") == "lost")
+    
+    completed = won + lost
+    win_rate = round((won / completed * 100), 1) if completed > 0 else 0
+    
+    total_staked = sum(p.get("stake", 0) or 0 for p in parlays if p.get("status") in ["won", "lost"])
+    total_profit = sum(p.get("actual_profit", 0) or 0 for p in parlays if p.get("status") in ["won", "lost"])
+    
+    roi = round((total_profit / total_staked * 100), 1) if total_staked > 0 else 0
+    
+    # Best win and worst loss
+    won_parlays = [p for p in parlays if p.get("status") == "won"]
+    lost_parlays = [p for p in parlays if p.get("status") == "lost"]
+    
+    best_win = None
+    if won_parlays:
+        best = max(won_parlays, key=lambda x: x.get("actual_profit", 0) or 0)
+        best_win = {
+            "name": best.get("name"),
+            "profit": best.get("actual_profit"),
+            "odds": best.get("total_odds"),
+            "date": best.get("result_date")
+        }
+    
+    worst_loss = None
+    if lost_parlays:
+        worst = min(lost_parlays, key=lambda x: x.get("actual_profit", 0) or 0)
+        worst_loss = {
+            "name": worst.get("name"),
+            "loss": abs(worst.get("actual_profit", 0) or 0),
+            "odds": worst.get("total_odds"),
+            "date": worst.get("result_date")
+        }
+    
+    # Current streak
+    completed_parlays = sorted(
+        [p for p in parlays if p.get("status") in ["won", "lost"] and p.get("result_date")],
+        key=lambda x: x.get("result_date", ""),
+        reverse=True
+    )
+    
+    streak_type = None
+    streak_count = 0
+    if completed_parlays:
+        streak_type = completed_parlays[0].get("status")
+        for p in completed_parlays:
+            if p.get("status") == streak_type:
+                streak_count += 1
+            else:
+                break
+    
+    # Average odds
+    all_odds = [p.get("total_odds", 0) for p in parlays if p.get("total_odds")]
+    avg_odds = round(sum(all_odds) / len(all_odds), 2) if all_odds else 0
+    
+    # Monthly breakdown
+    monthly_stats = {}
+    for p in parlays:
+        if p.get("status") in ["won", "lost"] and p.get("result_date"):
+            month_key = p["result_date"][:7]  # YYYY-MM
+            if month_key not in monthly_stats:
+                monthly_stats[month_key] = {"won": 0, "lost": 0, "profit": 0, "staked": 0}
+            
+            monthly_stats[month_key][p["status"]] += 1
+            monthly_stats[month_key]["profit"] += p.get("actual_profit", 0) or 0
+            monthly_stats[month_key]["staked"] += p.get("stake", 0) or 0
+    
+    return {
+        "total_parlays": total,
+        "pending": pending,
+        "won": won,
+        "lost": lost,
+        "win_rate": win_rate,
+        "total_staked": round(total_staked, 2),
+        "total_profit": round(total_profit, 2),
+        "roi": roi,
+        "best_win": best_win,
+        "worst_loss": worst_loss,
+        "current_streak": {"type": streak_type, "count": streak_count},
+        "avg_odds": avg_odds,
+        "monthly_stats": monthly_stats
+    }
 
 @api_router.delete("/parlays/{parlay_id}")
 async def delete_parlay(parlay_id: str, current_user: dict = Depends(get_current_user)):

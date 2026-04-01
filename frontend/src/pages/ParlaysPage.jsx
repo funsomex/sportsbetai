@@ -16,17 +16,26 @@ import {
   ArrowRight,
   Sparkle,
   Calendar,
-  CalendarBlank
+  CalendarBlank,
+  TrendUp,
+  TrendDown,
+  Clock,
+  CurrencyDollar,
+  ChartLine,
+  Medal,
+  XCircle
 } from "@phosphor-icons/react";
 
 export default function ParlaysPage() {
   const [matches, setMatches] = useState([]);
   const [parlays, setParlays] = useState([]);
+  const [parlayStats, setParlayStats] = useState(null);
   const [selections, setSelections] = useState([]);
   const [parlayName, setParlayName] = useState("");
   const [stake, setStake] = useState("");
   const [loading, setLoading] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  const [activeTab, setActiveTab] = useState("all"); // all, pending, won, lost
   
   // Auto generator state
   const [showGenerator, setShowGenerator] = useState(false);
@@ -68,14 +77,24 @@ export default function ParlaysPage() {
 
   useEffect(() => {
     loadData();
+    loadStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadStats = async () => {
+    try {
+      const response = await api.get("/parlays/stats");
+      setParlayStats(response.data);
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    }
+  };
 
   const loadData = async () => {
     try {
       const [matchesRes, parlaysRes] = await Promise.all([
         api.get("/matches?limit=30"),
-        api.get("/parlays")
+        api.get("/parlays?limit=50")
       ]);
       setMatches(matchesRes.data.matches || []);
       setParlays(parlaysRes.data.parlays || []);
@@ -83,6 +102,17 @@ export default function ParlaysPage() {
       toast.error("Error cargando datos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markParlayResult = async (parlayId, result) => {
+    try {
+      await api.put(`/parlays/${parlayId}/result`, { result });
+      toast.success(result === "won" ? "¡Combinada ganada!" : "Combinada perdida");
+      loadData();
+      loadStats();
+    } catch (error) {
+      toast.error("Error actualizando resultado");
     }
   };
 
@@ -117,6 +147,7 @@ export default function ParlaysPage() {
       setGeneratedParlay(null);
       setShowGenerator(false);
       loadData();
+      loadStats();
     } catch (error) {
       toast.error("Error guardando combinada");
     }
@@ -484,49 +515,238 @@ export default function ParlaysPage() {
             )}
           </div>
 
-          {/* Saved Parlays */}
+          {/* Stats and Parlays Section */}
           <div className="space-y-4">
-            <h2 className="font-heading text-lg font-bold uppercase tracking-wider text-white">
-              Mis Combinadas
-            </h2>
-            
-            {parlays.length > 0 ? (
-              <div className="space-y-3">
-                {parlays.map((parlay) => (
-                  <div key={parlay.id} className="bg-[#0A0A0A] border border-[#27272A] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-medium text-white">{parlay.name}</span>
-                      <button
-                        onClick={() => deleteParlay(parlay.id)}
-                        className="text-[#A1A1AA] hover:text-[#FF2E2E] transition-colors"
-                        data-testid="delete-parlay"
-                      >
-                        <Trash size={16} />
-                      </button>
-                    </div>
-                    <div className="space-y-2 mb-3">
-                      {parlay.selections?.slice(0, 3).map((sel, idx) => (
-                        <div key={idx} className="text-xs text-[#A1A1AA] flex justify-between">
-                          <span className="truncate mr-2">{sel.selection}</span>
-                          <span className="font-data">{sel.odds?.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      {parlay.selections?.length > 3 && (
-                        <div className="text-xs text-[#52525B]">+{parlay.selections.length - 3} más</div>
-                      )}
-                    </div>
-                    <div className="pt-3 border-t border-[#27272A] flex justify-between items-center">
-                      <span className="text-xs text-[#A1A1AA]">{parlay.selections?.length || 0} sel.</span>
-                      <span className="font-data text-lg font-bold text-[#CCFF00]">@{parlay.total_odds}</span>
+            {/* ROI Stats Panel */}
+            {parlayStats && (parlayStats.total_parlays > 0 || parlays.length > 0) && (
+              <div className="bg-[#0A0A0A] border border-[#27272A] p-4">
+                <h2 className="font-heading text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
+                  <ChartLine size={16} className="text-[#CCFF00]" />
+                  Mi Rendimiento
+                </h2>
+                
+                {/* Main Stats Grid */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-[#050505] p-3 text-center">
+                    <div className="text-[10px] text-[#52525B] uppercase mb-1">Win Rate</div>
+                    <div className={`font-data text-2xl font-bold ${
+                      parlayStats.win_rate >= 50 ? 'text-[#CCFF00]' : 'text-[#A1A1AA]'
+                    }`}>
+                      {parlayStats.win_rate}%
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-[#0A0A0A] border border-[#27272A] p-8 text-center text-[#A1A1AA] text-sm">
-                No tienes combinadas guardadas
+                  <div className="bg-[#050505] p-3 text-center">
+                    <div className="text-[10px] text-[#52525B] uppercase mb-1">ROI</div>
+                    <div className={`font-data text-2xl font-bold ${
+                      parlayStats.roi >= 0 ? 'text-[#CCFF00]' : 'text-[#FF2E2E]'
+                    }`}>
+                      {parlayStats.roi >= 0 ? '+' : ''}{parlayStats.roi}%
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Profit/Loss */}
+                <div className={`p-3 mb-4 ${
+                  parlayStats.total_profit >= 0 
+                    ? 'bg-[#CCFF00]/10 border border-[#CCFF00]/30' 
+                    : 'bg-[#FF2E2E]/10 border border-[#FF2E2E]/30'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[#A1A1AA]">Beneficio Total</span>
+                    <span className={`font-data text-xl font-bold ${
+                      parlayStats.total_profit >= 0 ? 'text-[#CCFF00]' : 'text-[#FF2E2E]'
+                    }`}>
+                      {parlayStats.total_profit >= 0 ? '+' : ''}${parlayStats.total_profit?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[#52525B] mt-1">
+                    De ${parlayStats.total_staked?.toLocaleString()} apostados
+                  </div>
+                </div>
+                
+                {/* Win/Loss Stats */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="bg-[#050505] p-2 text-center">
+                    <div className="flex items-center justify-center gap-1 text-[#CCFF00]">
+                      <CheckCircle size={14} weight="fill" />
+                      <span className="font-data text-lg font-bold">{parlayStats.won}</span>
+                    </div>
+                    <div className="text-[10px] text-[#52525B]">Ganadas</div>
+                  </div>
+                  <div className="bg-[#050505] p-2 text-center">
+                    <div className="flex items-center justify-center gap-1 text-[#FF2E2E]">
+                      <XCircle size={14} weight="fill" />
+                      <span className="font-data text-lg font-bold">{parlayStats.lost}</span>
+                    </div>
+                    <div className="text-[10px] text-[#52525B]">Perdidas</div>
+                  </div>
+                  <div className="bg-[#050505] p-2 text-center">
+                    <div className="flex items-center justify-center gap-1 text-[#A1A1AA]">
+                      <Clock size={14} />
+                      <span className="font-data text-lg font-bold">{parlayStats.pending}</span>
+                    </div>
+                    <div className="text-[10px] text-[#52525B]">Pendientes</div>
+                  </div>
+                </div>
+                
+                {/* Current Streak */}
+                {parlayStats.current_streak?.count > 0 && (
+                  <div className={`p-2 text-center text-xs ${
+                    parlayStats.current_streak.type === 'won' 
+                      ? 'bg-[#CCFF00]/10 text-[#CCFF00]' 
+                      : 'bg-[#FF2E2E]/10 text-[#FF2E2E]'
+                  }`}>
+                    {parlayStats.current_streak.type === 'won' ? '🔥' : '❄️'} 
+                    Racha actual: {parlayStats.current_streak.count} {parlayStats.current_streak.type === 'won' ? 'victorias' : 'derrotas'}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Parlays List */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-heading text-lg font-bold uppercase tracking-wider text-white">
+                  Mis Combinadas
+                </h2>
+              </div>
+              
+              {/* Filter Tabs */}
+              <div className="flex gap-1 mb-4">
+                {[
+                  { key: "all", label: "Todas" },
+                  { key: "pending", label: "Pendientes" },
+                  { key: "won", label: "Ganadas" },
+                  { key: "lost", label: "Perdidas" }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`px-3 py-1.5 text-xs uppercase tracking-wider transition-colors ${
+                      activeTab === tab.key
+                        ? 'bg-[#CCFF00] text-black'
+                        : 'bg-[#050505] text-[#A1A1AA] hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              
+              {parlays.length > 0 ? (
+                <div className="space-y-3">
+                  {parlays
+                    .filter(p => activeTab === "all" || p.status === activeTab || (activeTab === "pending" && p.status === "active"))
+                    .map((parlay) => (
+                    <div key={parlay.id} className={`bg-[#0A0A0A] border transition-colors ${
+                      parlay.status === 'won' ? 'border-[#CCFF00]/50' :
+                      parlay.status === 'lost' ? 'border-[#FF2E2E]/50' :
+                      'border-[#27272A]'
+                    }`}>
+                      {/* Header */}
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-white">{parlay.name}</span>
+                            {/* Status Badge */}
+                            {parlay.status === 'won' && (
+                              <span className="px-2 py-0.5 text-[10px] uppercase bg-[#CCFF00]/20 text-[#CCFF00] border border-[#CCFF00]/30">
+                                Ganada
+                              </span>
+                            )}
+                            {parlay.status === 'lost' && (
+                              <span className="px-2 py-0.5 text-[10px] uppercase bg-[#FF2E2E]/20 text-[#FF2E2E] border border-[#FF2E2E]/30">
+                                Perdida
+                              </span>
+                            )}
+                            {(parlay.status === 'pending' || parlay.status === 'active') && (
+                              <span className="px-2 py-0.5 text-[10px] uppercase bg-[#A1A1AA]/20 text-[#A1A1AA] border border-[#A1A1AA]/30">
+                                Pendiente
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteParlay(parlay.id)}
+                            className="text-[#A1A1AA] hover:text-[#FF2E2E] transition-colors"
+                            data-testid="delete-parlay"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                        
+                        {/* Selections */}
+                        <div className="space-y-1.5 mb-3">
+                          {parlay.selections?.slice(0, 3).map((sel, idx) => (
+                            <div key={idx} className="text-xs text-[#A1A1AA] flex justify-between">
+                              <span className="truncate mr-2">{sel.selection || sel.match}</span>
+                              <span className="font-data">{(sel.odds || 0).toFixed(2)}</span>
+                            </div>
+                          ))}
+                          {parlay.selections?.length > 3 && (
+                            <div className="text-xs text-[#52525B]">+{parlay.selections.length - 3} más</div>
+                          )}
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="pt-3 border-t border-[#27272A]">
+                          <div className="flex justify-between items-center mb-2">
+                            <div>
+                              <span className="text-xs text-[#A1A1AA]">{parlay.selections?.length || 0} sel.</span>
+                              {parlay.stake && (
+                                <span className="text-xs text-[#52525B] ml-2">
+                                  Apuesta: ${parlay.stake?.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-data text-lg font-bold text-[#CCFF00]">@{parlay.total_odds}</span>
+                          </div>
+                          
+                          {/* Result or Action Buttons */}
+                          {parlay.status === 'won' && (
+                            <div className="bg-[#CCFF00]/10 p-2 text-center">
+                              <span className="text-[#CCFF00] font-data font-bold">
+                                +${parlay.actual_profit?.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {parlay.status === 'lost' && (
+                            <div className="bg-[#FF2E2E]/10 p-2 text-center">
+                              <span className="text-[#FF2E2E] font-data font-bold">
+                                -${Math.abs(parlay.actual_profit || parlay.stake || 0)?.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {(parlay.status === 'pending' || parlay.status === 'active') && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => markParlayResult(parlay.id, 'won')}
+                                className="py-2 bg-[#CCFF00]/20 border border-[#CCFF00]/50 text-[#CCFF00] text-xs font-bold uppercase hover:bg-[#CCFF00]/30 transition-colors flex items-center justify-center gap-1"
+                                data-testid="mark-won"
+                              >
+                                <CheckCircle size={14} weight="bold" />
+                                Ganó
+                              </button>
+                              <button
+                                onClick={() => markParlayResult(parlay.id, 'lost')}
+                                className="py-2 bg-[#FF2E2E]/20 border border-[#FF2E2E]/50 text-[#FF2E2E] text-xs font-bold uppercase hover:bg-[#FF2E2E]/30 transition-colors flex items-center justify-center gap-1"
+                                data-testid="mark-lost"
+                              >
+                                <XCircle size={14} weight="bold" />
+                                Perdió
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#0A0A0A] border border-[#27272A] p-8 text-center text-[#A1A1AA] text-sm">
+                  No tienes combinadas guardadas
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
