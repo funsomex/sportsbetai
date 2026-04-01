@@ -239,6 +239,10 @@ async def fetch_real_odds(sport_key: str, regions: str = "eu,us", markets: str =
             )
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 401 or response.status_code == 429:
+                # Quota exceeded or unauthorized - log and return empty to trigger fallback
+                logger.warning(f"Odds API quota exceeded or unauthorized for {sport_key}")
+                return None  # Return None to indicate API issue (not just empty data)
             else:
                 logger.warning(f"Odds API returned {response.status_code} for {sport_key}")
     except Exception as e:
@@ -246,8 +250,9 @@ async def fetch_real_odds(sport_key: str, regions: str = "eu,us", markets: str =
     return []
 
 async def get_all_real_matches(sport_filter: str = None) -> List[Dict]:
-    """Get all real matches with odds from multiple sports"""
+    """Get all real matches with odds from multiple sports. Returns None if API unavailable."""
     all_matches = []
+    api_available = True
     
     # Determine which sports to fetch
     if sport_filter and sport_filter in ODDS_API_SPORTS:
@@ -262,6 +267,12 @@ async def get_all_real_matches(sport_filter: str = None) -> List[Dict]:
     for sport_key in sports_to_fetch:
         try:
             odds_data = await fetch_real_odds(sport_key)
+            
+            # If None returned, API quota exceeded
+            if odds_data is None:
+                api_available = False
+                break
+            
             for event in odds_data:
                 # Convert to our match format
                 odds_by_bookmaker = {}
@@ -315,6 +326,10 @@ async def get_all_real_matches(sport_filter: str = None) -> List[Dict]:
         except Exception as e:
             logger.error(f"Error processing {sport_key}: {e}")
             continue
+    
+    # If API not available, return None to trigger fallback
+    if not api_available:
+        return None
     
     # Sort by start time
     all_matches.sort(key=lambda x: x.get("start_time", ""))
@@ -786,17 +801,19 @@ async def get_matches(sport: str = None, status: str = None, limit: int = 20):
     if THE_ODDS_API_KEY:
         try:
             matches = await get_all_real_matches(sport)
-            if status:
-                matches = [m for m in matches if m["status"] == status]
-            return {"matches": matches[:limit], "total": len(matches), "source": "real"}
+            # If matches is None, API quota exceeded - use fallback
+            if matches is not None and len(matches) > 0:
+                if status:
+                    matches = [m for m in matches if m["status"] == status]
+                return {"matches": matches[:limit], "total": len(matches), "source": "real"}
         except Exception as e:
             logger.error(f"Error fetching real matches: {e}")
     
-    # Fallback to mock data
+    # Fallback to mock data (API unavailable or quota exceeded)
     matches = generate_mock_matches(sport, limit)
     if status:
         matches = [m for m in matches if m["status"] == status]
-    return {"matches": matches, "total": len(matches), "source": "mock"}
+    return {"matches": matches, "total": len(matches), "source": "demo", "message": "Datos de demostración - API en espera de reinicio de cuota"}
 
 @api_router.get("/matches/{match_id}")
 async def get_match(match_id: str):
@@ -830,9 +847,10 @@ async def get_value_bets(sport: str = None, min_value: float = 2.0):
     if THE_ODDS_API_KEY:
         try:
             matches = await get_all_real_matches(sport)
-            value_bets = calculate_real_value_bets(matches)
-            filtered = [vb for vb in value_bets if vb["value_percentage"] >= min_value]
-            return {"value_bets": filtered, "total": len(filtered), "source": "real"}
+            if matches is not None and len(matches) > 0:
+                value_bets = calculate_real_value_bets(matches)
+                filtered = [vb for vb in value_bets if vb["value_percentage"] >= min_value]
+                return {"value_bets": filtered, "total": len(filtered), "source": "real"}
         except Exception as e:
             logger.error(f"Error calculating real value bets: {e}")
     
@@ -840,7 +858,7 @@ async def get_value_bets(sport: str = None, min_value: float = 2.0):
     matches = generate_mock_matches(sport, count=30)
     value_bets = calculate_value_bets(matches)
     filtered = [vb for vb in value_bets if vb["value_percentage"] >= min_value]
-    return {"value_bets": filtered, "total": len(filtered), "source": "mock"}
+    return {"value_bets": filtered, "total": len(filtered), "source": "demo", "message": "Datos de demostración"}
 
 @api_router.get("/value-bets/top")
 async def get_top_value_bets(limit: int = 5):
@@ -848,15 +866,16 @@ async def get_top_value_bets(limit: int = 5):
     if THE_ODDS_API_KEY:
         try:
             matches = await get_all_real_matches()
-            value_bets = calculate_real_value_bets(matches)
-            return {"value_bets": value_bets[:limit], "source": "real"}
+            if matches is not None and len(matches) > 0:
+                value_bets = calculate_real_value_bets(matches)
+                return {"value_bets": value_bets[:limit], "source": "real"}
         except Exception as e:
             logger.error(f"Error getting top value bets: {e}")
     
     # Fallback to mock
     matches = generate_mock_matches(count=50)
     value_bets = calculate_value_bets(matches)
-    return {"value_bets": value_bets[:limit], "source": "mock"}
+    return {"value_bets": value_bets[:limit], "source": "demo"}
 
 # ============== ODDS COMPARISON ==============
 

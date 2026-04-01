@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [valueBets, setValueBets] = useState([]);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dataSource, setDataSource] = useState("real");
 
   useEffect(() => {
     loadDashboardData();
@@ -66,6 +67,7 @@ export default function DashboardPage() {
       setStats(statsRes.data);
       setValueBets(valueBetsRes.data.value_bets || []);
       setMatches(matchesRes.data.matches || []);
+      setDataSource(matchesRes.data.source || "real");
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
@@ -233,6 +235,19 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6" data-testid="dashboard-page">
+        {/* Demo Mode Banner */}
+        {dataSource === "demo" && (
+          <div className="bg-[#FF9500]/10 border border-[#FF9500]/30 p-4 flex items-center gap-3">
+            <div className="w-2 h-2 bg-[#FF9500] rounded-full animate-pulse" />
+            <div>
+              <span className="text-[#FF9500] font-medium text-sm">Modo Demostración</span>
+              <span className="text-[#A1A1AA] text-sm ml-2">
+                La cuota de API se reinicia pronto. Los datos mostrados son de ejemplo.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
