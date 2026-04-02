@@ -137,7 +137,7 @@ export default function SettingsPage() {
                   <div className="text-xs text-[#A1A1AA]">
                     <p className="font-medium text-[#00E5FF] mb-1">¿Cómo obtener tu Chat ID?</p>
                     <ol className="list-decimal list-inside space-y-1">
-                      <li>Busca nuestro bot en Telegram: <span className="text-white">@SportsBetAI_Bot</span></li>
+                      <li>Busca nuestro bot en Telegram: <span className="text-white">@Apuestasmix_bot</span></li>
                       <li>Envía el comando <span className="text-white">/start</span></li>
                       <li>El bot te responderá con tu Chat ID</li>
                       <li>Copia y pega el ID aquí</li>
