@@ -1,0 +1,258 @@
+================================================================================
+                    SPORTSBETAI - INFORMACIÓN COMPLETA DEL SISTEMA
+                    Sistema Predictivo de Apuestas Deportivas con IA
+================================================================================
+
+Fecha de generación: Abril 2026
+Estado: ✅ PRODUCCIÓN - 100% FUNCIONAL
+
+================================================================================
+                              URLS DE ACCESO
+================================================================================
+
+🌐 FRONTEND (Aplicación Web):
+   https://mellifluous-sherbet-50a651.netlify.app
+
+🔧 BACKEND (API):
+   https://sportsbetai.onrender.com
+
+================================================================================
+                         CREDENCIALES DE ACCESO
+================================================================================
+
+📧 USUARIO DE PRUEBA:
+   Email:    test_new@test.com
+   Password: NuevaPass123
+
+   NOTA: Puedes crear nuevos usuarios desde la pantalla de registro.
+
+================================================================================
+                              APIs EXTERNAS
+================================================================================
+
+📊 THE ODDS API (Cuotas deportivas en tiempo real)
+   - API Key actual: e2e1577b15e8915d05f1983ed531e6f9
+   - Plan: GRATUITO (500 requests/mes)
+   - Caché implementado: 60 minutos (para proteger la cuota)
+   - Web: https://the-odds-api.com
+   
+   ⚠️ IMPORTANTE: Si se agota la cuota, el sistema cambia automáticamente
+   a "Modo Demo" con datos de ejemplo hasta que se renueve el mes.
+   
+   Para obtener nueva API Key gratuita:
+   1. Ir a https://the-odds-api.com
+   2. Registrarse con nuevo email
+   3. Copiar la API Key del dashboard
+   4. Actualizar en Render (ver sección de configuración)
+
+🤖 TELEGRAM BOT (Alertas y recuperación de contraseña)
+   - Bot Token: 8213075202:AAHrfhJ6ujpLSz8fdq2K0dRsTB0mkv0UJOQ
+   - Nombre del bot: @SportsBetAI_Bot (o el que hayas configurado)
+   
+   Para recibir alertas:
+   1. Buscar el bot en Telegram
+   2. Enviar /start
+   3. Configurar tu Chat ID en el perfil de la app
+
+================================================================================
+                              BASE DE DATOS
+================================================================================
+
+🗄️ MONGODB ATLAS
+   Usuario:     funsomex_admin
+   Password:    SSs010616
+   Cluster:     funsomex.jqa2v8y.mongodb.net
+   Base datos:  sportsbetai
+   
+   Connection String completo:
+   mongodb+srv://funsomex_admin:SSs010616@funsomex.jqa2v8y.mongodb.net/sportsbetai?retryWrites=true&w=majority
+
+   Para acceder al panel de MongoDB Atlas:
+   1. Ir a https://cloud.mongodb.com
+   2. Iniciar sesión con tu cuenta
+   3. Seleccionar el cluster "funsomex"
+
+================================================================================
+                         HOSTING Y DEPLOYMENT
+================================================================================
+
+📦 NETLIFY (Frontend)
+   - URL: https://app.netlify.com
+   - El frontend se despliega automáticamente al hacer push a GitHub
+   - Dominio actual: mellifluous-sherbet-50a651.netlify.app
+
+📦 RENDER (Backend)
+   - URL: https://dashboard.render.com
+   - El backend se despliega automáticamente al hacer push a GitHub
+   - Servicio: sportsbetai
+   
+   Variables de entorno configuradas en Render:
+   - MONGO_URL: [Connection string de MongoDB Atlas]
+   - DB_NAME: sportsbetai
+   - JWT_SECRET: [Secreto para tokens JWT]
+   - THE_ODDS_API_KEY: e2e1577b15e8915d05f1983ed531e6f9
+   - TELEGRAM_BOT_TOKEN: [Token del bot]
+   - OPENAI_API_KEY: [Key de Emergent LLM]
+
+   Para cambiar la API Key de The Odds API:
+   1. Ir a https://dashboard.render.com
+   2. Seleccionar el servicio "sportsbetai"
+   3. Ir a "Environment" en el menú lateral
+   4. Buscar THE_ODDS_API_KEY y editar el valor
+   5. Guardar cambios (el servicio se reiniciará automáticamente)
+
+================================================================================
+                         FUNCIONALIDADES DEL SISTEMA
+================================================================================
+
+✅ AUTENTICACIÓN
+   - Registro de nuevos usuarios
+   - Login con JWT (tokens seguros)
+   - Recuperación de contraseña vía Telegram
+
+✅ DASHBOARD
+   - Métricas generales: Predicciones, Win Rate, ROI, Profit
+   - Gráfico de rendimiento semanal
+   - Próximos partidos con cuotas reales
+   - Top Value Bets destacados
+
+✅ PARTIDOS (DATOS REALES)
+   - Lista de partidos por deporte
+   - Cuotas de 27+ casas de apuestas (Bet365, Pinnacle, FanDuel, etc.)
+   - Deportes disponibles:
+     • Fútbol (Premier League, La Liga, Serie A, etc.)
+     • Baloncesto (NBA, Euroliga)
+     • Béisbol (MLB)
+     • Hockey (NHL)
+     • MMA/UFC
+     • Tenis (ATP, WTA)
+
+✅ VALUE BETS (Apuestas de Valor)
+   - Detección automática de value bets
+   - Cálculo de probabilidad real vs probabilidad implícita
+   - Nivel de confianza por apuesta
+   - Mejor casa de apuestas para cada selección
+
+✅ GENERADOR AUTOMÁTICO DE COMBINADAS (IA)
+   - Configuración de número de partidos (2-6 selecciones)
+   - Niveles de riesgo: Bajo, Medio, Alto
+   - Filtros por deporte
+   - Filtros por fecha: Hoy, Mañana, Esta semana, Fecha específica
+   - Análisis detallado de cada selección con IA
+   - Cálculo de ganancia potencial y probabilidad estimada
+
+✅ SISTEMA DE SEGUIMIENTO DE ROI
+   - Marcar combinadas como Ganada/Perdida
+   - Estadísticas completas:
+     • Win Rate %
+     • ROI %
+     • Beneficio/Pérdida total
+     • Total apostado
+     • Racha actual
+     • Mejor ganancia / Peor pérdida
+   - Filtros: Todas, Pendientes, Ganadas, Perdidas
+   - Historial completo de resultados
+
+✅ COMPARADOR DE CUOTAS
+   - Comparación entre múltiples bookmakers
+   - Identificación de la mejor cuota por mercado
+
+================================================================================
+                         LIMITACIONES CONOCIDAS
+================================================================================
+
+⚠️ PARTIDOS EN VIVO
+   The Odds API solo proporciona partidos PRE-PARTIDO (próximos).
+   No incluye marcadores en tiempo real de partidos en curso.
+   Solución futura: Integrar API-Football.
+
+⚠️ LÍMITE DE API
+   500 requests/mes en el plan gratuito de The Odds API.
+   El sistema tiene caché de 60 minutos para minimizar llamadas.
+   Si se agota, el sistema pasa automáticamente a "Modo Demo".
+
+================================================================================
+                              MODO DEMO
+================================================================================
+
+Si la API Key se agota o hay problemas de conexión, el sistema activa
+automáticamente el "Modo Demo" que:
+
+- Muestra un banner amarillo indicando que son datos de demostración
+- Genera partidos ficticios con cuotas simuladas
+- Permite probar todas las funcionalidades sin datos reales
+- Se desactiva automáticamente cuando la API vuelve a funcionar
+
+================================================================================
+                         SOPORTE Y MANTENIMIENTO
+================================================================================
+
+📁 ESTRUCTURA DEL PROYECTO
+   /app
+   ├── backend/
+   │   ├── server.py        # API principal (FastAPI)
+   │   ├── requirements.txt # Dependencias Python
+   │   └── .env            # Variables de entorno (local)
+   ├── frontend/
+   │   ├── src/
+   │   │   ├── pages/      # Páginas React
+   │   │   └── components/ # Componentes UI
+   │   └── package.json    # Dependencias Node.js
+   └── memory/
+       ├── PRD.md          # Documento de requisitos
+       └── test_credentials.md
+
+📊 ENDPOINTS API PRINCIPALES
+   GET  /api/health                    - Estado del servidor
+   POST /api/auth/register             - Registro de usuario
+   POST /api/auth/login                - Inicio de sesión
+   POST /api/auth/forgot-password      - Solicitar código de recuperación
+   POST /api/auth/reset-password       - Restablecer contraseña
+   GET  /api/matches                   - Obtener partidos (con caché)
+   GET  /api/matches/value-bets        - Obtener value bets
+   POST /api/parlays/generate          - Generar combinada con IA
+   GET  /api/parlays                   - Listar combinadas del usuario
+   PATCH /api/parlays/{id}/status      - Marcar ganada/perdida
+
+================================================================================
+                              CONSEJOS DE USO
+================================================================================
+
+1. PROTEGE TU CUOTA DE API
+   Evita recargar la página constantemente. El caché de 60 minutos
+   garantiza datos frescos sin gastar requests innecesariamente.
+
+2. REGISTRA TUS RESULTADOS
+   Usa el sistema de tracking para marcar tus combinadas como
+   ganadas o perdidas. Esto te dará métricas reales de tu rendimiento.
+
+3. USA EL FILTRO DE FECHAS
+   Al generar combinadas, filtra por "Hoy" o "Mañana" para obtener
+   partidos más relevantes y con cuotas más estables.
+
+4. DIVERSIFICA DEPORTES
+   El generador de IA funciona mejor cuando tiene variedad de
+   partidos para analizar. Prueba con diferentes deportes.
+
+5. NIVEL DE RIESGO
+   - Bajo: Favoritos claros, cuotas bajas, mayor probabilidad
+   - Medio: Balance entre valor y seguridad
+   - Alto: Underdogs y cuotas altas, mayor riesgo/recompensa
+
+================================================================================
+                              CONTACTO Y RECURSOS
+================================================================================
+
+📚 DOCUMENTACIÓN ADICIONAL
+   - Manual completo: /app/MANUAL_SPORTSBETAI_COMPLETO.md
+   - PRD del proyecto: /app/memory/PRD.md
+
+🔗 RECURSOS EXTERNOS
+   - The Odds API Docs: https://the-odds-api.com/liveapi/guides/v4/
+   - MongoDB Atlas: https://cloud.mongodb.com
+   - Render Dashboard: https://dashboard.render.com
+   - Netlify Dashboard: https://app.netlify.com
+
+================================================================================
+              ¡GRACIAS POR USAR SPORTSBETAI! 🎯⚽🏀🎾
+================================================================================

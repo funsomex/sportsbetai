@@ -5,7 +5,7 @@
 - **Password**: NuevaPass123
 
 ## APIs Externas
-- **The Odds API Key**: 9d53561688aea95b8ca410b523f38232
+- **The Odds API Key**: e2e1577b15e8915d05f1983ed531e6f9
 - **Telegram Bot Token**: 8213075202:AAHrfhJ6ujpLSz8fdq2K0dRsTB0mkv0UJOQ
 
 ## MongoDB Atlas
