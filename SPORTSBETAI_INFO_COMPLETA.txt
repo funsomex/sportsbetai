@@ -4,6 +4,7 @@
 ================================================================================
 
 Fecha de generación: Abril 2026
+Versión: 2.0.0 (Arquitectura Modular)
 Estado: ✅ PRODUCCIÓN - 100% FUNCIONAL
 
 ================================================================================
@@ -141,6 +142,18 @@ Estado: ✅ PRODUCCIÓN - 100% FUNCIONAL
    - Análisis detallado de cada selección con IA
    - Cálculo de ganancia potencial y probabilidad estimada
 
+✅ WIDGET "APUESTA DEL DÍA" (NUEVO v2.0)
+   - Selección destacada de la mejor value bet del día
+   - Visible en el Dashboard principal
+   - Análisis automático combinando valor + confianza
+   - Botones de compartir: Twitter, WhatsApp, Telegram
+   - Copiar texto para compartir manualmente
+
+✅ EXPORTACIÓN DE DATOS (NUEVO v2.0)
+   - Exportar historial completo a Excel (.xlsx)
+   - Generar reporte PDF con estadísticas
+   - Botones disponibles en la sección "Mi Rendimiento"
+
 ✅ SISTEMA DE SEGUIMIENTO DE ROI
    - Marcar combinadas como Ganada/Perdida
    - Estadísticas completas:
@@ -187,19 +200,38 @@ automáticamente el "Modo Demo" que:
                          SOPORTE Y MANTENIMIENTO
 ================================================================================
 
-📁 ESTRUCTURA DEL PROYECTO
+📁 ESTRUCTURA DEL PROYECTO (v2.0 - Arquitectura Modular)
    /app
    ├── backend/
-   │   ├── server.py        # API principal (FastAPI)
-   │   ├── requirements.txt # Dependencias Python
-   │   └── .env            # Variables de entorno (local)
+   │   ├── server.py           # Servidor principal (78 líneas)
+   │   ├── config/
+   │   │   ├── settings.py     # Configuración y variables de entorno
+   │   │   └── database.py     # Conexión MongoDB
+   │   ├── models/
+   │   │   └── schemas.py      # Modelos Pydantic
+   │   ├── routes/
+   │   │   ├── auth.py         # Autenticación
+   │   │   ├── matches.py      # Partidos y Value Bets
+   │   │   ├── parlays.py      # Combinadas
+   │   │   ├── stats.py        # Estadísticas
+   │   │   └── export.py       # Exportación Excel/PDF
+   │   ├── services/
+   │   │   ├── auth_service.py # Servicio de autenticación
+   │   │   ├── odds_service.py # Servicio The Odds API + Cache
+   │   │   ├── valuebets_service.py # Cálculo de Value Bets
+   │   │   ├── ai_service.py   # Integración IA (OpenAI)
+   │   │   ├── telegram_service.py # Notificaciones Telegram
+   │   │   ├── mock_service.py # Datos de demostración
+   │   │   └── export_service.py # Generación Excel/PDF
+   │   ├── requirements.txt
+   │   └── .env
    ├── frontend/
    │   ├── src/
-   │   │   ├── pages/      # Páginas React
-   │   │   └── components/ # Componentes UI
-   │   └── package.json    # Dependencias Node.js
+   │   │   ├── pages/
+   │   │   └── components/
+   │   └── package.json
    └── memory/
-       ├── PRD.md          # Documento de requisitos
+       ├── PRD.md
        └── test_credentials.md
 
 📊 ENDPOINTS API PRINCIPALES
@@ -209,10 +241,15 @@ automáticamente el "Modo Demo" que:
    POST /api/auth/forgot-password      - Solicitar código de recuperación
    POST /api/auth/reset-password       - Restablecer contraseña
    GET  /api/matches                   - Obtener partidos (con caché)
-   GET  /api/matches/value-bets        - Obtener value bets
+   GET  /api/matches/cache-stats       - Estadísticas del caché
+   GET  /api/value-bets                - Obtener value bets
+   GET  /api/bet-of-the-day            - Apuesta del día destacada
    POST /api/parlays/generate          - Generar combinada con IA
    GET  /api/parlays                   - Listar combinadas del usuario
    PATCH /api/parlays/{id}/status      - Marcar ganada/perdida
+   GET  /api/stats                     - Estadísticas del usuario
+   GET  /api/export/excel              - Descargar historial Excel
+   GET  /api/export/pdf                - Descargar reporte PDF
 
 ================================================================================
                               CONSEJOS DE USO

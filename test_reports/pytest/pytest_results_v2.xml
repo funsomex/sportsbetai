@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="19" time="6.111" timestamp="2026-04-02T12:49:25.390622+00:00" hostname="agent-env-3d02e89b-55e8-4d74-9179-19f3be69b729"><testcase classname="backend.tests.test_sportsbetai_v2.TestHealthAndBasics" name="test_health_check" time="0.210" /><testcase classname="backend.tests.test_sportsbetai_v2.TestHealthAndBasics" name="test_root_endpoint" time="0.104"><failure message="requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)">/root/.venv/lib/python3.11/site-packages/requests/models.py:976: in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/decoder.py:355: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_sportsbetai_v2.py:38: in test_root_endpoint
+    data = response.json()
+           ^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/models.py:980: in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+E   requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</failure></testcase><testcase classname="backend.tests.test_sportsbetai_v2.TestAuthentication" name="test_login_success" time="0.359" /><testcase classname="backend.tests.test_sportsbetai_v2.TestAuthentication" name="test_login_invalid_credentials" time="0.100" /><testcase classname="backend.tests.test_sportsbetai_v2.TestAuthentication" name="test_get_current_user" time="0.489" /><testcase classname="backend.tests.test_sportsbetai_v2.TestMatches" name="test_get_matches" time="1.314" /><testcase classname="backend.tests.test_sportsbetai_v2.TestMatches" name="test_get_value_bets" time="0.116" /><testcase classname="backend.tests.test_sportsbetai_v2.TestMatches" name="test_get_top_value_bets" time="0.140" /><testcase classname="backend.tests.test_sportsbetai_v2.TestBetOfTheDay" name="test_get_bet_of_the_day" time="0.105" /><testcase classname="backend.tests.test_sportsbetai_v2.TestStats" name="test_get_stats_authenticated" time="0.447" /><testcase classname="backend.tests.test_sportsbetai_v2.TestStats" name="test_get_stats_unauthenticated" time="0.101" /><testcase classname="backend.tests.test_sportsbetai_v2.TestExport" name="test_export_excel" time="0.451" /><testcase classname="backend.tests.test_sportsbetai_v2.TestExport" name="test_export_pdf" time="0.476" /><testcase classname="backend.tests.test_sportsbetai_v2.TestExport" name="test_export_excel_unauthenticated" time="0.105" /><testcase classname="backend.tests.test_sportsbetai_v2.TestExport" name="test_export_pdf_unauthenticated" time="0.092" /><testcase classname="backend.tests.test_sportsbetai_v2.TestParlays" name="test_get_parlays" time="0.454" /><testcase classname="backend.tests.test_sportsbetai_v2.TestParlays" name="test_get_parlay_stats" time="0.465"><failure message="AssertionError: Get parlay stats failed: {&quot;detail&quot;:&quot;Method Not Allowed&quot;}&#10;assert 405 == 200&#10; +  where 405 = &lt;Response [405]&gt;.status_code">backend/tests/test_sportsbetai_v2.py:305: in test_get_parlay_stats
+    assert response.status_code == 200, f"Get parlay stats failed: {response.text}"
+E   AssertionError: Get parlay stats failed: {"detail":"Method Not Allowed"}
+E   assert 405 == 200
+E    +  where 405 = &lt;Response [405]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_sportsbetai_v2.TestOddsComparison" name="test_compare_odds" time="0.238" /><testcase classname="backend.tests.test_sportsbetai_v2.TestCacheStats" name="test_get_cache_stats" time="0.103" /></testsuite></testsuites>

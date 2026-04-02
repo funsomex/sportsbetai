@@ -11,7 +11,14 @@ import {
   Target,
   ArrowRight,
   CaretUp,
-  CaretDown
+  CaretDown,
+  Trophy,
+  ShareNetwork,
+  TwitterLogo,
+  WhatsappLogo,
+  TelegramLogo,
+  Copy,
+  Star
 } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import {
@@ -49,8 +56,11 @@ export default function DashboardPage() {
   });
   const [valueBets, setValueBets] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [betOfTheDay, setBetOfTheDay] = useState(null);
+  const [shareLinks, setShareLinks] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState("real");
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -59,20 +69,166 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [statsRes, valueBetsRes, matchesRes] = await Promise.all([
+      const [statsRes, valueBetsRes, matchesRes, betOfDayRes] = await Promise.all([
         api.get("/stats"),
         api.get("/value-bets/top?limit=5"),
-        api.get("/matches?limit=5")  // Changed: Get upcoming matches instead of live
+        api.get("/matches?limit=5"),
+        api.get("/bet-of-the-day")
       ]);
       setStats(statsRes.data);
       setValueBets(valueBetsRes.data.value_bets || []);
       setMatches(matchesRes.data.matches || []);
       setDataSource(matchesRes.data.source || "real");
+      
+      // Set bet of the day
+      if (betOfDayRes.data.bet) {
+        setBetOfTheDay(betOfDayRes.data.bet);
+        setShareLinks(betOfDayRes.data.share);
+      }
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("¡Copiado al portapapeles!");
+    } catch (err) {
+      toast.error("Error al copiar");
+    }
+    setShowShareMenu(false);
+  };
+
+  const openShareLink = (url) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setShowShareMenu(false);
+  };
+
+  // Bet of the Day Widget Component
+  const BetOfTheDayWidget = () => {
+    if (!betOfTheDay) return null;
+    
+    const bet = betOfTheDay;
+    
+    return (
+      <div 
+        className="relative bg-gradient-to-br from-[#CCFF00]/10 via-[#0A0A0A] to-[#0A0A0A] border-2 border-[#CCFF00] p-6 overflow-hidden"
+        data-testid="bet-of-the-day-widget"
+      >
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#CCFF00]/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-[#CCFF00]/10 rounded-full blur-2xl" />
+        
+        {/* Badge */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="p-2 bg-[#1A1A1A] border border-[#27272A] hover:border-[#CCFF00] transition-colors"
+              data-testid="share-bet-button"
+            >
+              <ShareNetwork size={18} className="text-[#CCFF00]" />
+            </button>
+            
+            {/* Share Menu Dropdown */}
+            {showShareMenu && (
+              <div className="absolute top-full right-0 mt-2 bg-[#0A0A0A] border border-[#27272A] p-2 min-w-[180px] z-50 shadow-xl">
+                <button
+                  onClick={() => openShareLink(shareLinks?.twitter_url)}
+                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#1A1A1A] transition-colors text-left"
+                  data-testid="share-twitter"
+                >
+                  <TwitterLogo size={18} className="text-[#1DA1F2]" />
+                  <span className="text-sm text-white">Twitter</span>
+                </button>
+                <button
+                  onClick={() => openShareLink(shareLinks?.whatsapp_url)}
+                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#1A1A1A] transition-colors text-left"
+                  data-testid="share-whatsapp"
+                >
+                  <WhatsappLogo size={18} className="text-[#25D366]" />
+                  <span className="text-sm text-white">WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => openShareLink(shareLinks?.telegram_url)}
+                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#1A1A1A] transition-colors text-left"
+                  data-testid="share-telegram"
+                >
+                  <TelegramLogo size={18} className="text-[#0088CC]" />
+                  <span className="text-sm text-white">Telegram</span>
+                </button>
+                <div className="border-t border-[#27272A] my-1" />
+                <button
+                  onClick={() => copyToClipboard(shareLinks?.text)}
+                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#1A1A1A] transition-colors text-left"
+                  data-testid="copy-bet-text"
+                >
+                  <Copy size={18} className="text-[#A1A1AA]" />
+                  <span className="text-sm text-white">Copiar texto</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-[#CCFF00] flex items-center justify-center">
+            <Trophy size={28} weight="fill" className="text-black" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-heading text-lg font-bold uppercase tracking-wider text-white">
+                Apuesta del Día
+              </h3>
+              <Star size={16} weight="fill" className="text-[#CCFF00]" />
+            </div>
+            <p className="text-xs text-[#A1A1AA]">Selección destacada por IA</p>
+          </div>
+        </div>
+        
+        {/* Match Info */}
+        <div className="mb-4">
+          <span className="badge-league mb-2 inline-block">{bet.match.league}</span>
+          <div className="text-xl font-bold text-white">
+            {bet.match.home_team} vs {bet.match.away_team}
+          </div>
+        </div>
+        
+        {/* Selection & Odds */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-[#1A1A1A] p-4 border-l-4 border-[#CCFF00]">
+            <div className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-1">Selección</div>
+            <div className="text-lg font-bold text-[#CCFF00]">{bet.selection}</div>
+          </div>
+          <div className="bg-[#1A1A1A] p-4">
+            <div className="text-xs text-[#A1A1AA] uppercase tracking-wider mb-1">Cuota</div>
+            <div className="font-data text-3xl font-bold text-white">{bet.odds}</div>
+          </div>
+        </div>
+        
+        {/* Stats Bar */}
+        <div className="flex items-center justify-between text-sm bg-[#0F0F0F] p-3 border border-[#27272A]">
+          <div className="flex items-center gap-4">
+            <div>
+              <span className="text-[#A1A1AA]">Valor: </span>
+              <span className="text-[#CCFF00] font-bold">+{bet.value_percentage}%</span>
+            </div>
+            <div className="w-px h-4 bg-[#27272A]" />
+            <div>
+              <span className="text-[#A1A1AA]">Confianza: </span>
+              <span className="text-[#00E5FF] font-bold">{bet.confidence}%</span>
+            </div>
+          </div>
+          <div className="text-[#A1A1AA] text-xs">
+            Casa: <span className="text-white font-medium">{bet.bookmaker}</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "default" }) => (
@@ -247,6 +403,9 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Bet of the Day Widget */}
+        <BetOfTheDayWidget />
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

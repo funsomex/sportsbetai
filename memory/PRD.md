@@ -90,3 +90,16 @@ Sistema predictivo de apuestas deportivas con Inteligencia Artificial que utiliz
 ✅ Sistema 100% funcional en producción con datos reales
 ✅ Caché de 60 minutos implementado para proteger cuota de API
 ✅ Documentación completa generada: /app/SPORTSBETAI_INFO_COMPLETA.txt
+
+## Versión 2.0.0 - Arquitectura Modular (2026-04-02)
+
+### Nuevas Funcionalidades
+- [x] Widget "Apuesta del Día" en Dashboard con opción de compartir
+- [x] Exportación a Excel (.xlsx) con historial completo y estadísticas
+- [x] Exportación a PDF con reporte de rendimiento
+
+### Refactorización del Backend
+- [x] Migración de server.py monolítico (1860 líneas) a arquitectura modular (78 líneas)
+- [x] Estructura de carpetas: config/, models/, routes/, services/
+- [x] Separación de responsabilidades por dominio
+- [x] Mejor mantenibilidad y escalabilidad del código

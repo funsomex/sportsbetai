@@ -65,8 +65,10 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await api.post("/auth/login", { email, password });
-    const { access_token, user: userData } = response.data;
-    localStorage.setItem("token", access_token);
+    // Backend returns 'token' not 'access_token'
+    const { token, access_token, user: userData } = response.data;
+    const authToken = token || access_token;
+    localStorage.setItem("token", authToken);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     return userData;

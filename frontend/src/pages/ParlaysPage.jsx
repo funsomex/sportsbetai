@@ -23,7 +23,10 @@ import {
   CurrencyDollar,
   ChartLine,
   Medal,
-  XCircle
+  XCircle,
+  FileXls,
+  FilePdf,
+  DownloadSimple
 } from "@phosphor-icons/react";
 
 export default function ParlaysPage() {
@@ -150,6 +153,42 @@ export default function ParlaysPage() {
       loadStats();
     } catch (error) {
       toast.error("Error guardando combinada");
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      toast.loading("Generando Excel...", { id: "export-excel" });
+      const response = await api.get("/export/excel", { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'sportsbetai_historial.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Excel descargado", { id: "export-excel" });
+    } catch (error) {
+      toast.error("Error generando Excel", { id: "export-excel" });
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      toast.loading("Generando PDF...", { id: "export-pdf" });
+      const response = await api.get("/export/pdf", { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'sportsbetai_reporte.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF descargado", { id: "export-pdf" });
+    } catch (error) {
+      toast.error("Error generando PDF", { id: "export-pdf" });
     }
   };
 
@@ -600,6 +639,26 @@ export default function ParlaysPage() {
                     Racha actual: {parlayStats.current_streak.count} {parlayStats.current_streak.type === 'won' ? 'victorias' : 'derrotas'}
                   </div>
                 )}
+
+                {/* Export Buttons */}
+                <div className="flex gap-2 mt-4 pt-4 border-t border-[#27272A]">
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] hover:bg-[#222222] border border-[#27272A] py-2 px-3 text-xs text-white transition-colors"
+                    data-testid="export-excel-btn"
+                  >
+                    <FileXls size={16} className="text-[#22C55E]" />
+                    Exportar Excel
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] hover:bg-[#222222] border border-[#27272A] py-2 px-3 text-xs text-white transition-colors"
+                    data-testid="export-pdf-btn"
+                  >
+                    <FilePdf size={16} className="text-[#EF4444]" />
+                    Exportar PDF
+                  </button>
+                </div>
               </div>
             )}
 
