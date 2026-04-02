@@ -131,42 +131,44 @@ async def generate_parlay(
         except Exception as e:
             logger.error(f"Error fetching real matches for parlay: {e}")
     
+    # If no real matches, generate mock matches with the date filter already applied
     if not matches:
         matches = generate_mock_matches(count=50, date_filter=request.date_filter)
-    
-    # Filter by date if specified
-    if request.date_filter and matches:
-        now = datetime.now(timezone.utc)
-        filtered_matches = []
-        
-        for m in matches:
-            try:
-                match_time_str = m.get("start_time", "")
-                if match_time_str:
-                    match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-                    
-                    if request.date_filter == "today":
-                        if match_time.date() == now.date():
+        source = "demo"
+    else:
+        # Only filter real matches by date (mock matches are already filtered)
+        if request.date_filter and matches:
+            now = datetime.now(timezone.utc)
+            filtered_matches = []
+            
+            for m in matches:
+                try:
+                    match_time_str = m.get("start_time", "")
+                    if match_time_str:
+                        match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
+                        
+                        if request.date_filter == "today":
+                            if match_time.date() == now.date():
+                                filtered_matches.append(m)
+                        elif request.date_filter == "tomorrow":
+                            tomorrow = (now + timedelta(days=1)).date()
+                            if match_time.date() == tomorrow:
+                                filtered_matches.append(m)
+                        elif request.date_filter == "week":
+                            week_end = now + timedelta(days=7)
+                            if now <= match_time <= week_end:
+                                filtered_matches.append(m)
+                        elif request.specific_date:
+                            specific = datetime.strptime(request.specific_date, "%Y-%m-%d").date()
+                            if match_time.date() == specific:
+                                filtered_matches.append(m)
+                        else:
                             filtered_matches.append(m)
-                    elif request.date_filter == "tomorrow":
-                        tomorrow = (now + timedelta(days=1)).date()
-                        if match_time.date() == tomorrow:
-                            filtered_matches.append(m)
-                    elif request.date_filter == "week":
-                        week_end = now + timedelta(days=7)
-                        if now <= match_time <= week_end:
-                            filtered_matches.append(m)
-                    elif request.specific_date:
-                        specific = datetime.strptime(request.specific_date, "%Y-%m-%d").date()
-                        if match_time.date() == specific:
-                            filtered_matches.append(m)
-                    else:
-                        filtered_matches.append(m)
-            except Exception:
-                filtered_matches.append(m)
-        
-        if filtered_matches:
-            matches = filtered_matches
+                except Exception:
+                    filtered_matches.append(m)
+            
+            if filtered_matches:
+                matches = filtered_matches
     
     # Filter by sports
     if request.sports:
@@ -186,8 +188,68 @@ async def generate_parlay(
         sports_filter=request.sports
     )
     
+    # Fallback: generate without AI if AI service fails
     if not result:
-        raise HTTPException(status_code=500, detail="Could not generate parlay")
+        logger.warning("AI service unavailable, generating parlay without AI analysis")
+        import random
+        selected_matches = random.sample(matches, request.num_selections)
+        
+        selections = []
+        total_odds = 1.0
+        
+        risk_odds_range = {
+            "low": (1.20, 1.60),
+            "medium": (1.50, 2.20),
+            "high": (2.00, 4.00)
+        }
+        min_odds, max_odds = risk_odds_range.get(request.risk_level, (1.50, 2.20))
+        
+        for m in selected_matches:
+            # Pick a random market
+            markets = ["home", "away"]
+            if m.get("sport") == "football":
+                markets.append("draw")
+            market = random.choice(markets)
+            
+            # Get best odds for that market
+            best_odds = 0
+            best_bookmaker = "Unknown"
+            for bookie, odds in m.get("odds", {}).items():
+                if market in odds and min_odds <= odds[market] <= max_odds:
+                    if odds[market] > best_odds:
+                        best_odds = odds[market]
+                        best_bookmaker = bookie
+            
+            # If no odds in range, pick any
+            if best_odds == 0:
+                for bookie, odds in m.get("odds", {}).items():
+                    if market in odds and odds[market] > best_odds:
+                        best_odds = odds[market]
+                        best_bookmaker = bookie
+            
+            selection_name = m["home_team"] if market == "home" else (
+                "Empate" if market == "draw" else m["away_team"]
+            )
+            
+            selections.append({
+                "match_id": m["id"],
+                "match": f"{m['home_team']} vs {m['away_team']}",
+                "league": m["league"],
+                "selection": selection_name,
+                "market": market,
+                "odds": round(best_odds, 2) if best_odds > 0 else 1.50,
+                "confidence": random.randint(55, 75),
+                "reasoning": f"Selección automática basada en cuotas - Nivel de riesgo: {request.risk_level}"
+            })
+            total_odds *= (best_odds if best_odds > 0 else 1.50)
+        
+        result = {
+            "selections": selections,
+            "total_odds": round(total_odds, 2),
+            "win_probability": round(100 / total_odds, 1) if total_odds > 0 else 0,
+            "risk_assessment": f"Combinada generada automáticamente con nivel de riesgo {request.risk_level}",
+            "recommendation": "Revisa cada selección antes de apostar. Datos de demostración."
+        }
     
     return {
         "parlay": result,

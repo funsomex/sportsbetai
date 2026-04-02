@@ -56,11 +56,16 @@ def generate_mock_matches(count: int = 20, sport_filter: str = None, date_filter
     # Date filtering
     now = datetime.now(timezone.utc)
     if date_filter == "today":
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + timedelta(days=1)
+        # Generate matches starting from current hour until end of day
+        start_date = now
+        end_date = now.replace(hour=23, minute=59, second=59, microsecond=0)
+        # Ensure at least 12 hours range for generating matches
+        if (end_date - start_date).total_seconds() < 3600 * 6:
+            # If less than 6 hours left today, extend into early morning
+            end_date = start_date + timedelta(hours=12)
     elif date_filter == "tomorrow":
-        start_date = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + timedelta(days=1)
+        start_date = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(hours=14)
     elif date_filter == "week":
         start_date = now
         end_date = now + timedelta(days=7)
@@ -68,14 +73,18 @@ def generate_mock_matches(count: int = 20, sport_filter: str = None, date_filter
         start_date = now
         end_date = now + timedelta(days=7)
     
+    # Calculate hours range, minimum 1 hour
+    total_hours = max(1, int((end_date - start_date).total_seconds() / 3600))
+    
     for i in range(count):
         sport = random.choice(sports)
         teams = random.choice(TEAMS.get(sport, TEAMS["football"]))
         league = random.choice(LEAGUES.get(sport, LEAGUES["football"]))
         
         # Random time within date range
-        delta_hours = random.randint(1, int((end_date - start_date).total_seconds() / 3600))
-        start_time = start_date + timedelta(hours=delta_hours)
+        delta_hours = random.randint(0, total_hours)
+        delta_minutes = random.randint(0, 59)
+        start_time = start_date + timedelta(hours=delta_hours, minutes=delta_minutes)
         
         # Generate odds from multiple bookmakers
         base_home = random.uniform(1.5, 4.0)
