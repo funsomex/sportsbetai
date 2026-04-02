@@ -103,3 +103,8 @@ Sistema predictivo de apuestas deportivas con Inteligencia Artificial que utiliz
 - [x] Estructura de carpetas: config/, models/, routes/, services/
 - [x] Separación de responsabilidades por dominio
 - [x] Mejor mantenibilidad y escalabilidad del código
+
+### Fixes aplicados durante testing
+- [x] Login bug: Frontend esperaba 'access_token', backend retornaba 'token' - corregido
+- [x] Endpoint faltante: /api/parlays/stats añadido
+- [x] Compatibilidad: PUT /api/parlays/{id}/result añadido para frontend
