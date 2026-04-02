@@ -203,6 +203,76 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# ============== CACHE SYSTEM ==============
+
+# Cache configuration - adjust these values to control API usage
+CACHE_DURATION_MINUTES = 60  # Cache data for 60 minutes (1 hour)
+# With 60 min cache: 24 updates/day × 7 sports = 168 requests/day max
+# Monthly: ~5,000 requests (but usually much less due to smart caching)
+# With 120 min cache: ~2,500 requests/month - well within free tier!
+
+async def get_cached_odds(sport_key: str) -> dict:
+    """Get cached odds for a sport if still valid"""
+    try:
+        cache_entry = await db.odds_cache.find_one({"sport_key": sport_key}, {"_id": 0})
+        if cache_entry:
+            cached_at = datetime.fromisoformat(cache_entry["cached_at"])
+            age_minutes = (datetime.now(timezone.utc) - cached_at).total_seconds() / 60
+            if age_minutes < CACHE_DURATION_MINUTES:
+                logger.info(f"Cache HIT for {sport_key} (age: {age_minutes:.1f} min)")
+                return cache_entry
+            else:
+                logger.info(f"Cache EXPIRED for {sport_key} (age: {age_minutes:.1f} min)")
+        else:
+            logger.info(f"Cache MISS for {sport_key}")
+    except Exception as e:
+        logger.error(f"Error reading cache: {e}")
+    return None
+
+async def set_cached_odds(sport_key: str, odds_data: list):
+    """Save odds data to cache"""
+    try:
+        cache_entry = {
+            "sport_key": sport_key,
+            "odds_data": odds_data,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=CACHE_DURATION_MINUTES)).isoformat()
+        }
+        await db.odds_cache.update_one(
+            {"sport_key": sport_key},
+            {"$set": cache_entry},
+            upsert=True
+        )
+        logger.info(f"Cache SET for {sport_key} ({len(odds_data)} events)")
+    except Exception as e:
+        logger.error(f"Error writing cache: {e}")
+
+async def get_cache_stats():
+    """Get cache statistics"""
+    try:
+        total_cached = await db.odds_cache.count_documents({})
+        cache_entries = await db.odds_cache.find({}, {"_id": 0, "sport_key": 1, "cached_at": 1}).to_list(100)
+        
+        stats = {
+            "total_sports_cached": total_cached,
+            "cache_duration_minutes": CACHE_DURATION_MINUTES,
+            "entries": []
+        }
+        
+        for entry in cache_entries:
+            cached_at = datetime.fromisoformat(entry["cached_at"])
+            age_minutes = (datetime.now(timezone.utc) - cached_at).total_seconds() / 60
+            stats["entries"].append({
+                "sport": entry["sport_key"],
+                "age_minutes": round(age_minutes, 1),
+                "is_valid": age_minutes < CACHE_DURATION_MINUTES
+            })
+        
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        return {"error": str(e)}
+
 # ============== REAL DATA FROM THE ODDS API ==============
 
 async def fetch_real_sports():
@@ -222,9 +292,16 @@ async def fetch_real_sports():
     return []
 
 async def fetch_real_odds(sport_key: str, regions: str = "eu,us", markets: str = "h2h"):
-    """Fetch real odds from The Odds API"""
+    """Fetch real odds from The Odds API with caching"""
     if not THE_ODDS_API_KEY:
         return []
+    
+    # Check cache first
+    cached = await get_cached_odds(sport_key)
+    if cached and cached.get("odds_data"):
+        return cached["odds_data"]
+    
+    # Cache miss or expired - fetch from API
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -238,11 +315,18 @@ async def fetch_real_odds(sport_key: str, regions: str = "eu,us", markets: str =
                 timeout=30.0
             )
             if response.status_code == 200:
-                return response.json()
+                odds_data = response.json()
+                # Save to cache
+                await set_cached_odds(sport_key, odds_data)
+                return odds_data
             elif response.status_code == 401 or response.status_code == 429:
-                # Quota exceeded or unauthorized - log and return empty to trigger fallback
-                logger.warning(f"Odds API quota exceeded or unauthorized for {sport_key}")
-                return None  # Return None to indicate API issue (not just empty data)
+                # Quota exceeded - check if we have stale cache to use
+                stale_cache = await db.odds_cache.find_one({"sport_key": sport_key}, {"_id": 0})
+                if stale_cache and stale_cache.get("odds_data"):
+                    logger.warning(f"Using stale cache for {sport_key} due to quota limit")
+                    return stale_cache["odds_data"]
+                logger.warning(f"Odds API quota exceeded for {sport_key}, no cache available")
+                return None
             else:
                 logger.warning(f"Odds API returned {response.status_code} for {sport_key}")
     except Exception as e:
@@ -794,6 +878,21 @@ async def send_telegram_alert(value_bet: dict, current_user: dict = Depends(get_
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============== MATCHES ENDPOINTS ==============
+
+@api_router.get("/cache/stats")
+async def get_api_cache_stats():
+    """Get cache statistics to monitor API usage"""
+    stats = await get_cache_stats()
+    return stats
+
+@api_router.delete("/cache/clear")
+async def clear_cache():
+    """Clear all cached data (admin only - use sparingly)"""
+    try:
+        result = await db.odds_cache.delete_many({})
+        return {"message": f"Cache cleared. {result.deleted_count} entries removed."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/matches")
 async def get_matches(sport: str = None, status: str = None, limit: int = 20):
